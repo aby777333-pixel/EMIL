@@ -1,0 +1,608 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ============ AUTH & USERS ============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String
+  role          String    @default("trader") // trader | admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      TradingAccount[]
+  consentLogs   ConsentLog[]
+  auditLogs     AuditLog[]
+  riskOverrides RiskOverride[]
+  knowledgeItems KnowledgeItem[]
+
+  @@map("users")
+}
+
+// ============ BROKERS & ACCOUNTS ============
+
+model Broker {
+  id          String   @id @default(cuid())
+  name        String
+  platform    String   // MT5 | MT4 | cTrader | FIX
+  serverName  String?
+  connections BrokerConnection[]
+  accounts    TradingAccount[]
+
+  @@map("brokers")
+}
+
+model BrokerConnection {
+  id             String   @id @default(cuid())
+  brokerId       String
+  broker         Broker   @relation(fields: [brokerId], references: [id])
+  status         String   @default("connected") // connected | degraded | disconnected
+  latencyMs      Int      @default(0)
+  lastHeartbeat  DateTime @default(now())
+  quoteStalenessMs Int    @default(0)
+
+  @@map("broker_connections")
+}
+
+model TradingAccount {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  brokerId         String
+  broker           Broker   @relation(fields: [brokerId], references: [id])
+  accountNumber    String
+  currency         String   @default("USD")
+  balance          Float
+  equity           Float
+  marginUsed       Float    @default(0)
+  freeMargin       Float    @default(0)
+  protectedCapital Float
+  profitCapital    Float    @default(0)
+  workingCapital   Float
+  highWaterMark    Float
+  profitFloor      Float    @default(0)
+  floatingPL       Float    @default(0)
+  dailyPL          Float    @default(0)
+  weeklyPL         Float    @default(0)
+  monthlyPL        Float    @default(0)
+  profitCapitalMode Boolean @default(false)
+  positions        Position[]
+  capitalLedgers   CapitalLedger[]
+  drawdownEvents   DrawdownEvent[]
+
+  @@map("accounts")
+}
+
+// ============ INSTRUMENTS ============
+
+model Instrument {
+  id           String  @id @default(cuid())
+  symbol       String  @unique
+  name         String
+  assetClass   String  // forex | metals | indices | energies | crypto | stocks | commodities
+  baseCurrency String?
+  quoteCurrency String?
+  currentPrice Float   @default(0)
+  dailyChangePct Float @default(0)
+  // ---- India market extensions (NSE / BSE / MCX) ----
+  exchange     String  @default("GLOBAL") // GLOBAL | NSE | BSE | MCX
+  segment      String? // equity | index | future | option | commodity
+  country      String  @default("GLOBAL") // GLOBAL | IN
+  isin         String?
+  lotSize      Int?    // units per derivative lot (Indian F&O / MCX)
+  priceBandPct Float?  // Indian circuit-limit price band (%)
+  spec         InstrumentSpecification?
+  positions    Position[]
+  candidates   TradeCandidate[]
+
+  @@map("instruments")
+}
+
+model InstrumentSpecification {
+  id               String     @id @default(cuid())
+  instrumentId     String     @unique
+  instrument       Instrument @relation(fields: [instrumentId], references: [id])
+  contractSize     Float      @default(100000)
+  tickSize         Float      @default(0.00001)
+  tickValue        Float      @default(1)
+  pipValuePerLot   Float      @default(10)
+  minLot           Float      @default(0.01)
+  lotStep           Float     @default(0.01)
+  maxLot           Float      @default(100)
+  marginPerLot     Float      @default(1000)
+  typicalSpreadPips Float     @default(1.0)
+  currentSpreadPips Float     @default(1.0)
+
+  @@map("instrument_specifications")
+}
+
+// ============ INDIA MARKET API HUB (NSE / BSE / MCX) ============
+
+model IndiaApiProvider {
+  id             String    @id @default(cuid())
+  key            String    @unique // zerodha_kite | upstox | angel_one | dhan | fyers | icici_breeze
+  name           String
+  vendor         String
+  docsUrl        String
+  baseUrl        String
+  authType       String    // api_key_secret_daily_token | oauth2 | totp_login | static_token
+  authNote       String?
+  exchanges      String    // comma list: NSE,BSE,MCX,NFO,BFO
+  capabilities   String    // comma list: quotes,historical,websocket,orders,portfolio,margins
+  rateLimitNote  String?
+  pricingNote    String?
+  status         String    @default("not_configured") // not_configured | configured | connected | error
+  isPrimaryData  Boolean   @default(false)
+  isPrimaryExec  Boolean   @default(false)
+  apiKey         String?
+  apiSecret      String?
+  accessToken    String?
+  tokenExpiresAt DateTime?
+  clientCode     String?   // Angel One client code / Dhan client id etc.
+  lastCheckedAt  DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("india_api_providers")
+}
+
+model ExchangeSession {
+  id           String  @id @default(cuid())
+  exchange     String  // NSE | BSE | MCX
+  segment      String  // equity | derivatives | commodity
+  timezone     String  @default("Asia/Kolkata")
+  preOpen      String? // "09:00"
+  open         String  // "09:15"
+  close        String  // "15:30"
+  postClose    String? // "16:00"
+  eveningClose String? // MCX non-agri extended close, e.g. "23:30"
+  note         String?
+
+  @@unique([exchange, segment])
+  @@map("exchange_sessions")
+}
+
+model IndiaHoliday {
+  id       String   @id @default(cuid())
+  exchange String   // NSE | BSE | MCX | ALL
+  date     DateTime
+  name     String
+
+  @@map("india_market_holidays")
+}
+
+// ============ PERMISSIONS, RISK, CONSENT ============
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String
+  granted     Boolean  @default(false)
+  category    String   // trading | management | hedging | learning | emergency
+  updatedAt   DateTime @updatedAt
+
+  @@map("permissions")
+}
+
+model RiskProfile {
+  id                    String  @id @default(cuid())
+  name                  String
+  isActive              Boolean @default(false)
+  baseLot               Float   @default(0.01)
+  maxAggregateExposure  Float   @default(0.05)
+  maxRiskPerTradePct    Float   @default(0.5)
+  riskCeilingPct        Float   @default(5.0)
+  dailyLossLimitPct     Float   @default(2.0)
+  weeklyLossLimitPct    Float   @default(5.0)
+  maxDrawdownPct        Float   @default(8.0)
+  maxMarginUtilPct      Float   @default(25.0)
+  maxOpenPositions      Int     @default(4)
+  pauseAfterConsecutiveLosses Int @default(3)
+  hedgePermitted        Boolean @default(true)
+  newsBehavior          String  @default("pause_before_high_impact")
+  allowedSessions       String  @default("London,New York")
+  allowedAssetClasses   String  @default("forex,metals,indices")
+
+  @@map("risk_profiles")
+}
+
+model RiskOverride {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  parameter      String
+  previousValue  String
+  newValue       String
+  duration       String   // one_order | one_strategy | one_instrument | one_session | until_time | persistent
+  expiresAt      DateTime?
+  scenarioText   String?
+  acknowledged   Boolean  @default(false)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@map("risk_overrides")
+}
+
+model ConsentLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String   // arm_emil | disarm | lot_override | mode_change | close_all | emergency_stop
+  mode        String?
+  detail      String
+  checkboxes  String?  // JSON array of acknowledged items
+  authMethod  String   @default("press_and_hold")
+  createdAt   DateTime @default(now())
+
+  @@map("consent_logs")
+}
+
+// ============ MARKET STATE ============
+
+model MarketRegime {
+  id         String   @id @default(cuid())
+  symbol     String
+  timeframe  String
+  regime     String   // strong_bullish_trend, range, compression, breakout, etc.
+  confidence Float
+  volatilityClass String @default("normal") // normal | elevated | high | extreme | disorderly
+  detectedAt DateTime @default(now())
+
+  @@map("market_regimes")
+}
+
+model CorrelationSnapshot {
+  id        String   @id @default(cuid())
+  symbolA   String
+  symbolB   String
+  window    String   @default("20d")
+  coefficient Float
+  cluster   String?
+  takenAt   DateTime @default(now())
+
+  @@map("correlation_snapshots")
+}
+
+model PortfolioExposure {
+  id            String   @id @default(cuid())
+  dimension     String   // instrument | asset_class | currency | cluster
+  key           String
+  exposureLots  Float
+  exposurePct   Float
+  direction     String   @default("net_long")
+  updatedAt     DateTime @updatedAt
+
+  @@map("portfolio_exposure")
+}
+
+// ============ STRATEGIES ============
+
+model StrategyVersion {
+  id             String  @id @default(cuid())
+  name           String
+  version        String
+  strategyType   String  // trend | breakout | mean_reversion | momentum | scalping | swing
+  status         String  @default("healthy") // healthy | watch | degraded | suspended | research_only
+  healthScore    Float   @default(75)
+  trades         Int     @default(0)
+  winRate        Float   @default(0)
+  avgWin         Float   @default(0)
+  avgLoss        Float   @default(0)
+  expectancy     Float   @default(0)
+  profitFactor   Float   @default(0)
+  maxDrawdownPct Float   @default(0)
+  sharpeLike     Float   @default(0)
+  sortinoLike    Float   @default(0)
+  recoveryFactor Float   @default(0)
+  consecutiveLosses Int  @default(0)
+  driftStatus    String  @default("stable") // stable | drifting | drift_alert
+  isChampion     Boolean @default(false)
+  isChallenger   Boolean @default(false)
+  stage          String  @default("production") // research | backtest | paper | restricted_live | production
+  regimePerformance String? // JSON
+  candidates     TradeCandidate[]
+
+  @@map("strategy_versions")
+}
+
+// ============ AGENTS & DECISIONS ============
+
+model Agent {
+  id          String  @id @default(cuid())
+  number      Int     @unique
+  name        String
+  category    String  // market_analysis | strategy | risk | execution | learning | knowledge | guardian
+  status      String  @default("active") // active | degraded | offline
+  description String
+  currentAssessment String?
+  confidence  Float   @default(0)
+  votes       AgentVote[]
+
+  @@map("agents")
+}
+
+model TradeCandidate {
+  id              String   @id @default(cuid())
+  instrumentId    String
+  instrument      Instrument @relation(fields: [instrumentId], references: [id])
+  strategyId      String
+  strategy        StrategyVersion @relation(fields: [strategyId], references: [id])
+  direction       String   // BUY | SELL
+  regime          String
+  htfBias         String
+  entry           Float
+  stopLoss        Float
+  tp1             Float?
+  tp2             Float?
+  tp3             Float?
+  baseLot         Float    @default(0.01)
+  calculatedLot   Float
+  maxExposure     Float    @default(0.05)
+  aggExposureBefore Float
+  aggExposureAfter  Float
+  monetaryRisk    Float
+  riskPct         Float
+  rewardRisk      Float
+  confidence      Float
+  probabilityScenario String?
+  expectedDuration String?
+  trendCondition  String?
+  volatilityCondition String?
+  liquidityCondition String?
+  spreadPips      Float?
+  estSlippagePips Float?
+  newsRisk        String?
+  correlationExposure String?
+  hedgeRequired   Boolean  @default(false)
+  reasonsFor      String   // JSON array
+  reasonsAgainst  String   // JSON array
+  invalidation    String?
+  exitPlan        String?
+  guardianStatus  String   @default("pending") // approved | rejected | pending | conditional
+  finalDecision   String   @default("WAIT") // BUY SELL WAIT REJECT HEDGE REDUCE CLOSE PAUSE
+  consensusScore  Float    @default(0)
+  trustScore      Float    @default(0)
+  survivalResult  String?  // JSON of catastrophe sim
+  status          String   @default("proposed") // proposed | approved | rejected | executed | expired
+  pipelineStage   String   @default("agent_council")
+  createdAt       DateTime @default(now())
+  votes           AgentVote[]
+  riskDecisions   RiskDecision[]
+  orders          TradeOrder[]
+
+  @@map("trade_candidates")
+}
+
+model AgentVote {
+  id           String   @id @default(cuid())
+  candidateId  String
+  candidate    TradeCandidate @relation(fields: [candidateId], references: [id])
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id])
+  vote         String   // BUY SELL WAIT REJECT HEDGE REDUCE CLOSE PAUSE
+  confidence   Float
+  evidenceFor  String?
+  evidenceAgainst String?
+  createdAt    DateTime @default(now())
+
+  @@map("agent_votes")
+}
+
+model RiskDecision {
+  id           String   @id @default(cuid())
+  candidateId  String
+  candidate    TradeCandidate @relation(fields: [candidateId], references: [id])
+  engine       String   // independent_risk_engine | guardian | capital_protection | permission_engine
+  decision     String   // approved | rejected | conditional
+  reason       String
+  createdAt    DateTime @default(now())
+
+  @@map("risk_decisions")
+}
+
+// ============ ORDERS, EXECUTIONS, POSITIONS ============
+
+model TradeOrder {
+  id            String   @id @default(cuid())
+  candidateId   String?
+  candidate     TradeCandidate? @relation(fields: [candidateId], references: [id])
+  symbol        String
+  direction     String
+  orderType     String   @default("market")
+  lots          Float
+  price         Float
+  stopLoss      Float?
+  takeProfit    Float?
+  status        String   @default("pending") // pending | filled | cancelled | rejected
+  idempotencyKey String  @unique @default(cuid())
+  createdAt     DateTime @default(now())
+  executions    Execution[]
+
+  @@map("trade_orders")
+}
+
+model Execution {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       TradeOrder @relation(fields: [orderId], references: [id])
+  fillPrice   Float
+  fillLots    Float
+  slippagePips Float   @default(0)
+  commission  Float    @default(0)
+  executedAt  DateTime @default(now())
+
+  @@map("executions")
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      TradingAccount @relation(fields: [accountId], references: [id])
+  instrumentId String
+  instrument   Instrument @relation(fields: [instrumentId], references: [id])
+  direction    String
+  lots         Float
+  entryPrice   Float
+  currentPrice Float
+  stopLoss     Float?
+  takeProfit   Float?
+  floatingPL   Float    @default(0)
+  status       String   @default("open") // open | pending | closed
+  isHedge      Boolean  @default(false)
+  strategyName String?
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+  closedPL     Float?
+  hedges       Hedge[]
+
+  @@map("positions")
+}
+
+model Hedge {
+  id             String   @id @default(cuid())
+  positionId     String
+  position       Position @relation(fields: [positionId], references: [id])
+  hedgeSymbol    String
+  hedgeLots      Float
+  reason         String
+  exitCondition  String
+  status         String   @default("active") // active | removed
+  openedAt       DateTime @default(now())
+  removedAt      DateTime?
+
+  @@map("hedges")
+}
+
+// ============ CAPITAL & DRAWDOWN ============
+
+model CapitalLedger {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     TradingAccount @relation(fields: [accountId], references: [id])
+  entryType   String   // deposit | realized_pl | profit_lock | hwm_update | milestone
+  amount      Float
+  balanceAfter Float
+  equityAfter Float
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@map("capital_ledgers")
+}
+
+model DrawdownEvent {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      TradingAccount @relation(fields: [accountId], references: [id])
+  level        String   // daily | weekly | monthly | hwm | strategy | asset_class | floating
+  drawdownPct  Float
+  thresholdPct Float
+  action       String
+  resolved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@map("drawdown_events")
+}
+
+// ============ LEARNING & KNOWLEDGE ============
+
+model LearningEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // post_trade_analysis | correction | drift_detected | regime_learned | promotion | correct_loss | bad_loss
+  title       String
+  detail      String
+  agentName   String?
+  createdAt   DateTime @default(now())
+
+  @@map("learning_events")
+}
+
+model KnowledgeItem {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  title          String
+  knowledgeType  String   // strategy | indicator | ea | journal | document | screenshot | dataset | correction | instruction | url
+  classification String   @default("personal") // personal | global
+  factType       String   @default("hypothesis") // fact | opinion | hypothesis
+  trustLevel     Int      @default(0) // 0-7
+  sourceReliability String @default("unverified")
+  scopeNote      String?
+  contentText    String?
+  cloudStoragePath String?
+  isPublic       Boolean  @default(false)
+  fileName       String?
+  fileType       String?
+  status         String   @default("processing") // processing | parsed | understood | validated | active | retired
+  analysisResult String?  // LLM analysis JSON/text
+  tags           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("knowledge_items")
+}
+
+// ============ SYSTEM ============
+
+model EmilState {
+  id                 String   @id @default(cuid())
+  armed              Boolean  @default(false)
+  mode               String   @default("observation") // observation | advisory | confirmation | assisted | semi_autonomous | autonomous | management_only | capital_protection | emergency
+  guardianStatus     String   @default("active")
+  guardianDecision   String   @default("NORMAL OPERATION")
+  trustScore         Float    @default(62)
+  trustBreakdown     String?  // JSON
+  agentConsensus     String   @default("WAIT")
+  consensusScore     Float    @default(0)
+  volatilityStatus   String   @default("normal")
+  newsCountdownMins  Int      @default(999)
+  nextNewsEvent      String?
+  marketDataHealth   String   @default("healthy")
+  updatedAt          DateTime @updatedAt
+
+  @@map("emil_state")
+}
+
+model EmergencyEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // emergency_stop | close_all | kill_switch | broker_outage
+  triggeredBy String
+  detail      String
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("emergency_events")
+}
+
+model SystemHealth {
+  id           String   @id @default(cuid())
+  component    String
+  status       String   @default("healthy") // healthy | degraded | down
+  latencyMs    Int      @default(0)
+  message      String?
+  checkedAt    DateTime @default(now())
+
+  @@map("system_health")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  actor     String   @default("user") // user | emil | guardian | system
+  action    String
+  category  String   @default("general")
+  detail    String
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}

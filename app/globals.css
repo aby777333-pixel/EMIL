@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root, .dark {
+    --background: 216 33% 6%;
+    --foreground: 210 25% 92%;
+
+    --card: 215 30% 9%;
+    --card-foreground: 210 25% 92%;
+
+    --popover: 215 30% 8%;
+    --popover-foreground: 210 25% 92%;
+
+    --primary: 188 90% 53%;
+    --primary-foreground: 216 33% 6%;
+
+    --secondary: 215 25% 14%;
+    --secondary-foreground: 210 25% 88%;
+
+    --muted: 215 25% 13%;
+    --muted-foreground: 214 14% 60%;
+
+    --accent: 215 25% 16%;
+    --accent-foreground: 188 90% 60%;
+
+    --destructive: 0 78% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 215 22% 16%;
+    --input: 215 22% 18%;
+    --ring: 188 90% 53%;
+
+    --radius: 0.5rem;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+  }
+
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}
+
+@layer utilities {
+  .terminal-glow { box-shadow: 0 0 0 1px hsl(188 90% 53% / 0.12), 0 0 24px hsl(188 90% 53% / 0.06); }
+  .danger-glow { box-shadow: 0 0 0 1px hsl(0 78% 60% / 0.3), 0 0 20px hsl(0 78% 60% / 0.12); }
+  .num { @apply font-mono tabular-nums; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(215 22% 22%); border-radius: 3px; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }

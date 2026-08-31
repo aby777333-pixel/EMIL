@@ -1,0 +1,410 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { Panel, LoadingPanel, StatusMessage, Stat } from '@/components/cockpit/panel'
+import {
+  Plug, Landmark, Clock3, Database, KeyRound, ShieldCheck, Activity,
+  CalendarDays, CandlestickChart, ExternalLink, RefreshCw, Trash2, Star,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+
+const STATUS_STYLES: Record<string, string> = {
+  connected: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  configured: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+  error: 'bg-red-500/15 text-red-300 border-red-500/30',
+  not_configured: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
+}
+
+const LIVE_STYLES: Record<string, string> = {
+  open: 'text-emerald-400',
+  pre_open: 'text-cyan-400',
+  evening_session: 'text-amber-400',
+  post_close: 'text-amber-400',
+  closed: 'text-slate-500',
+  weekend: 'text-slate-500',
+  holiday: 'text-red-400',
+}
+
+const CRED_FIELDS: Record<string, { key: string; label: string; secret?: boolean }[]> = {
+  api_key: [{ key: 'apiKey', label: 'API key', secret: true }],
+  api_key_secret_daily_token: [
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'apiSecret', label: 'API secret', secret: true },
+    { key: 'accessToken', label: 'Daily access / session token', secret: true },
+  ],
+  oauth2: [
+    { key: 'apiKey', label: 'App ID / API key', secret: true },
+    { key: 'apiSecret', label: 'App secret', secret: true },
+    { key: 'accessToken', label: 'Access token (daily)', secret: true },
+  ],
+  totp_login: [
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'clientCode', label: 'Client code' },
+    { key: 'accessToken', label: 'JWT token (from TOTP login)', secret: true },
+  ],
+  static_token: [{ key: 'accessToken', label: 'Access token (30-day)', secret: true }],
+}
+
+const PREVIEWS: { fn: string; label: string }[] = [
+  { fn: 'trending', label: 'Trending' },
+  { fn: 'nse_most_active', label: 'NSE most active' },
+  { fn: 'bse_most_active', label: 'BSE most active' },
+  { fn: 'commodities', label: 'MCX commodities' },
+  { fn: 'price_shockers', label: 'Price shockers' },
+]
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${STATUS_STYLES?.[status] ?? STATUS_STYLES.not_configured}`}>
+      {status?.replace('_', ' ')}
+    </span>
+  )
+}
+
+function Chips({ csv, tone = 'text-slate-300 bg-secondary/70' }: { csv?: string | null; tone?: string }) {
+  if (!csv) return null
+  return (
+    <div className="flex flex-wrap gap-1">
+      {csv.split(',').map((c) => (
+        <span key={c} className={`rounded px-1.5 py-0.5 text-[10px] border border-border/60 ${tone}`}>{c.trim()}</span>
+      ))}
+    </div>
+  )
+}
+
+export default function ApiHubClient() {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [busyKey, setBusyKey] = useState('')
+  const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({})
+  const [openForm, setOpenForm] = useState('')
+  const [previewFn, setPreviewFn] = useState('trending')
+  const [preview, setPreview] = useState<any>(null)
+  const [previewBusy, setPreviewBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/india')
+      if (!res?.ok) throw new Error('failed')
+      setData(await res.json())
+    } catch {
+      setError('Failed to load the India API hub.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const post = useCallback(async (body: any, okMsg: string) => {
+    setBusyKey(`${body?.type}:${body?.key}`)
+    try {
+      const res = await fetch('/api/india', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res?.ok) throw new Error(d?.error ?? 'failed')
+      if (body?.type === 'test_connection') {
+        d?.ok ? toast.success(d?.message ?? okMsg) : toast.error(d?.message ?? 'Connection failed.')
+      } else {
+        toast.success(okMsg)
+      }
+      await load()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Request failed.')
+    } finally {
+      setBusyKey('')
+    }
+  }, [load])
+
+  const saveCreds = useCallback((p: any) => {
+    const draft = drafts?.[p?.key] ?? {}
+    const filled = Object.fromEntries(Object.entries(draft).filter(([, v]) => String(v ?? '').trim() !== ''))
+    if (Object.keys(filled).length === 0) { toast.error('Enter at least one credential field.'); return }
+    post({ type: 'save_credentials', key: p?.key, ...filled }, `${p?.name} credentials saved server-side.`)
+    setDrafts((d) => ({ ...d, [p?.key]: {} }))
+    setOpenForm('')
+  }, [drafts, post])
+
+  const runPreview = useCallback(async (fn: string) => {
+    setPreviewFn(fn)
+    setPreviewBusy(true)
+    setPreview(null)
+    try {
+      const res = await fetch(`/api/india/market?fn=${fn}`)
+      const d = await res.json().catch(() => null)
+      if (res.status === 409) { setPreview({ notConfigured: true }); return }
+      if (!res.ok) { setPreview({ error: d?.message ?? 'Request failed.' }); return }
+      setPreview({ data: d?.data })
+    } catch {
+      setPreview({ error: 'Request failed.' })
+    } finally {
+      setPreviewBusy(false)
+    }
+  }, [])
+
+  if (loading) return <LoadingPanel text="Loading India API Hub…" />
+  if (error) return <StatusMessage text={error} />
+
+  const providers: any[] = data?.providers ?? []
+  const featured = providers.find((p) => p?.key === 'indianapi')
+  const brokers = providers.filter((p) => p?.key !== 'indianapi')
+  const sessions: any[] = data?.sessions ?? []
+  const instruments: any[] = data?.instruments ?? []
+  const holidays: any[] = data?.holidays ?? []
+  const byExchange = (ex: string) => instruments.filter((i) => i?.exchange === ex)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+            <Plug className="h-5 w-5 text-cyan-400" /> India Market API Hub
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            NSE · BSE · MCX — market data via IndianAPI.in, execution via Indian broker APIs. Indian instruments run through the same
+            EMIL risk pipeline: Guardian, the 0.05-lot aggregate exposure law and monetary-risk validation apply unchanged.
+          </p>
+        </div>
+      </div>
+
+      {/* Exchange sessions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        {sessions.map((s) => (
+          <div key={s?.id} className="rounded-lg border border-border bg-card px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">{s?.exchange} <span className="text-slate-500 font-normal">{s?.segment}</span></span>
+              <Clock3 className="h-3.5 w-3.5 text-slate-500" />
+            </div>
+            <div className={`text-sm font-medium mt-1 ${LIVE_STYLES?.[s?.live?.status] ?? 'text-slate-400'}`}>{s?.live?.label}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5 num">
+              {s?.open}–{s?.close}{s?.eveningClose ? ` / eve → ${s.eveningClose}` : ''} IST · now {s?.live?.istClock}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Featured data provider: IndianAPI.in */}
+      {featured ? (
+        <Panel title="Market Data — IndianAPI.in (Indian Stock Market API)" icon={Database} accent="emerald">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={featured?.status} />
+                {featured?.isPrimaryData ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-300"><Star className="h-3 w-3" /> Primary data</span>
+                ) : null}
+              </div>
+              <p className="text-xs text-slate-400">{featured?.authNote}</p>
+              <Chips csv={featured?.exchanges} tone="text-cyan-300 bg-cyan-500/10" />
+              <Chips csv={featured?.capabilities} />
+              <div className="text-[11px] text-slate-500">{featured?.rateLimitNote}</div>
+              {featured?.lastError ? <div className="text-[11px] text-red-400">Last error: {featured.lastError}</div> : null}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <input
+                  type="password"
+                  placeholder={featured?.hasApiKey ? `Key saved (${featured?.apiKeyMasked}) — paste to replace` : 'Paste IndianAPI.in API key'}
+                  value={drafts?.indianapi?.apiKey ?? ''}
+                  onChange={(e) => setDrafts((d) => ({ ...d, indianapi: { ...d?.indianapi, apiKey: e.target.value } }))}
+                  className="w-full sm:w-64 rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60"
+                />
+                <button
+                  onClick={() => saveCreds(featured)}
+                  disabled={busyKey !== ''}
+                  className="rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1.5"
+                >
+                  <KeyRound className="h-3.5 w-3.5" /> Save key
+                </button>
+                <button
+                  onClick={() => post({ type: 'test_connection', key: 'indianapi' }, 'Connected.')}
+                  disabled={busyKey !== ''}
+                  className="rounded-md bg-secondary hover:bg-secondary/70 border border-border px-3 py-1.5 text-xs font-semibold text-slate-200 flex items-center gap-1.5"
+                >
+                  <Activity className="h-3.5 w-3.5" /> Test connection
+                </button>
+                <a href={featured?.docsUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline flex items-center gap-1">
+                  Docs <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {PREVIEWS.map((pv) => (
+                  <button
+                    key={pv.fn}
+                    onClick={() => runPreview(pv.fn)}
+                    className={`rounded-md px-2.5 py-1 text-[11px] border transition-colors ${previewFn === pv.fn ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300' : 'border-border bg-secondary/50 text-slate-400 hover:text-slate-200'}`}
+                  >
+                    {pv.label}
+                  </button>
+                ))}
+                <button onClick={() => runPreview(previewFn)} className="rounded-md px-2 py-1 text-[11px] border border-border bg-secondary/50 text-slate-400 hover:text-slate-200">
+                  <RefreshCw className={`h-3 w-3 ${previewBusy ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              <div className="rounded-md border border-border/70 bg-secondary/30 p-2 h-56 overflow-auto">
+                {previewBusy ? (
+                  <div className="text-xs text-slate-500 p-2">Fetching live data…</div>
+                ) : preview?.notConfigured ? (
+                  <div className="text-xs text-amber-300 p-2">Save your IndianAPI.in key, then run a preview — live NSE/BSE/MCX data will appear here.</div>
+                ) : preview?.error ? (
+                  <div className="text-xs text-red-400 p-2">{preview.error}</div>
+                ) : preview?.data ? (
+                  <pre className="text-[10px] leading-relaxed text-slate-300 whitespace-pre-wrap break-all">{JSON.stringify(preview.data, null, 2)}</pre>
+                ) : (
+                  <div className="text-xs text-slate-500 p-2">Pick a preview above to pull live market data through the hub.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      ) : null}
+
+      {/* Broker / execution providers */}
+      <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">
+        <p className="text-xs text-slate-500 mb-3">
+          Order execution on NSE/BSE/MCX requires an Indian broker API. Configure one below and set it as the primary execution provider.
+          Credentials are stored server-side and never sent to the browser.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {brokers.map((p) => {
+            const fields = CRED_FIELDS?.[p?.authType] ?? CRED_FIELDS.api_key_secret_daily_token
+            const isOpen = openForm === p?.key
+            return (
+              <div key={p?.id} className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col gap-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{p?.name}</div>
+                    <div className="text-[11px] text-slate-500">{p?.vendor}</div>
+                  </div>
+                  <StatusBadge status={p?.status} />
+                </div>
+                <Chips csv={p?.exchanges} tone="text-cyan-300 bg-cyan-500/10" />
+                <div className="text-[11px] text-slate-500 line-clamp-2">{p?.authNote}</div>
+                {p?.isPrimaryExec ? (
+                  <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-300"><Star className="h-3 w-3" /> Primary execution</div>
+                ) : null}
+                {p?.lastError ? <div className="text-[11px] text-red-400">Last: {p.lastError}</div> : null}
+
+                {isOpen ? (
+                  <div className="space-y-1.5 pt-1">
+                    {fields.map((f) => (
+                      <input
+                        key={f.key}
+                        type={f.secret ? 'password' : 'text'}
+                        placeholder={f.label}
+                        value={drafts?.[p?.key]?.[f.key] ?? ''}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [p?.key]: { ...d?.[p?.key], [f.key]: e.target.value } }))}
+                        className="w-full rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60"
+                      />
+                    ))}
+                    <div className="flex gap-1.5 pt-0.5">
+                      <button onClick={() => saveCreds(p)} disabled={busyKey !== ''} className="rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-2.5 py-1 text-[11px] font-semibold text-white">Save</button>
+                      <button onClick={() => setOpenForm('')} className="rounded-md border border-border px-2.5 py-1 text-[11px] text-slate-400">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mt-auto pt-1">
+                    <button onClick={() => setOpenForm(p?.key)} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-500/50 flex items-center gap-1">
+                      <KeyRound className="h-3 w-3" /> {p?.hasApiKey || p?.hasAccessToken ? 'Update keys' : 'Add keys'}
+                    </button>
+                    <button onClick={() => post({ type: 'test_connection', key: p?.key }, 'Connected.')} disabled={busyKey !== ''} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-500/50 flex items-center gap-1">
+                      <Activity className="h-3 w-3" /> Test
+                    </button>
+                    {!p?.isPrimaryExec ? (
+                      <button onClick={() => post({ type: 'set_primary', key: p?.key, role: 'exec' }, `${p?.name} is now the primary execution provider.`)} disabled={busyKey !== ''} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-amber-500/50 flex items-center gap-1">
+                        <Star className="h-3 w-3" /> Primary
+                      </button>
+                    ) : null}
+                    {p?.hasApiKey || p?.hasAccessToken ? (
+                      <button onClick={() => post({ type: 'clear_credentials', key: p?.key }, 'Credentials cleared.')} disabled={busyKey !== ''} className="rounded-md border border-border bg-secondary/60 px-2 py-1 text-[11px] text-red-400 hover:border-red-500/50 flex items-center gap-1">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                    <a href={p?.docsUrl} target="_blank" rel="noreferrer" className="ml-auto text-[11px] text-cyan-400 hover:underline flex items-center gap-1">
+                      Docs <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </Panel>
+
+      {/* Instruments */}
+      <Panel title="Indian Instruments — Normalized Catalog" icon={CandlestickChart} accent="violet">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <Stat label="NSE instruments" value={byExchange('NSE').length} />
+          <Stat label="BSE instruments" value={byExchange('BSE').length} />
+          <Stat label="MCX instruments" value={byExchange('MCX').length} />
+          <Stat label="Currency" value="INR" sub="Account conversion applies" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-border">
+                <th className="py-2 pr-3">Symbol</th>
+                <th className="py-2 pr-3">Name</th>
+                <th className="py-2 pr-3">Exchange</th>
+                <th className="py-2 pr-3">Segment</th>
+                <th className="py-2 pr-3 text-right">Lot size</th>
+                <th className="py-2 pr-3 text-right">Tick</th>
+                <th className="py-2 pr-3 text-right">Price band</th>
+                <th className="py-2 pr-0 text-right">Ref price ₹</th>
+              </tr>
+            </thead>
+            <tbody>
+              {instruments.map((i) => (
+                <tr key={i?.id} className="border-b border-border/40 text-slate-300">
+                  <td className="py-1.5 pr-3 font-medium text-white num">{i?.symbol}</td>
+                  <td className="py-1.5 pr-3">{i?.name}</td>
+                  <td className="py-1.5 pr-3"><span className="rounded bg-secondary/70 border border-border/60 px-1.5 py-0.5 text-[10px]">{i?.exchange}</span></td>
+                  <td className="py-1.5 pr-3 text-slate-400">{i?.segment}</td>
+                  <td className="py-1.5 pr-3 text-right num">{i?.lotSize ?? '—'}</td>
+                  <td className="py-1.5 pr-3 text-right num">{i?.spec?.tickSize ?? '—'}</td>
+                  <td className="py-1.5 pr-3 text-right num">{i?.priceBandPct ? `±${i.priceBandPct}%` : '—'}</td>
+                  <td className="py-1.5 pr-0 text-right num">{i?.currentPrice?.toLocaleString?.('en-IN') ?? i?.currentPrice}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-slate-500 mt-2">
+          Lot sizes and bands are seed defaults — the instrument master from the connected provider is the source of truth on sync.
+          Position sizing for Indian F&O uses exchange lots; EMIL still rejects any order whose smallest lot exceeds permitted monetary risk.
+        </p>
+      </Panel>
+
+      {/* Holidays + safety note */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel title="Market Holidays (fixed-date)" icon={CalendarDays} accent="amber">
+          <ul className="space-y-1.5">
+            {holidays.map((h) => (
+              <li key={h?.id} className="flex items-center justify-between text-xs text-slate-300">
+                <span>{h?.name}</span>
+                <span className="num text-slate-500">{h?.date ? new Date(h.date).toISOString().slice(0, 10) : ''} · {h?.exchange}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-slate-500 mt-2">
+            Only fixed-date national holidays are seeded. Lunar-calendar holidays (Holi, Diwali, Eid…) shift yearly — sync the official
+            exchange calendar; EMIL treats unknown dates as normal sessions.
+          </p>
+        </Panel>
+        <Panel title="Risk Law — unchanged for India" icon={ShieldCheck} accent="red">
+          <ul className="space-y-1.5 text-xs text-slate-300 list-disc pl-4">
+            <li>Aggregate EMIL-controlled exposure cap applies across ALL markets — global and Indian positions count toward the same limit.</li>
+            <li>Indian F&O trades in exchange lots: if one lot exceeds permitted monetary risk, EMIL rejects the trade — it never rounds up.</li>
+            <li>No trades outside exchange sessions; MCX evening session requires the session to be explicitly allowed in the risk profile.</li>
+            <li>Order execution stays disabled until a broker provider is connected AND armed via the ARM console — market data alone never trades.</li>
+            <li>API credentials live server-side only and every change is written to the audit log.</li>
+          </ul>
+        </Panel>
+      </div>
+    </div>
+  )
+}

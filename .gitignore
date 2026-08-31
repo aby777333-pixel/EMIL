@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env
+.env.local
+.env*.local
+tsconfig.tsbuildinfo
+next.config.user.json
+__abacus_error_reporter.js
+.DS_Store
+*.log
