@@ -8,7 +8,7 @@ export const NAV_ITEMS = [
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },
   { href: '/agents', label: 'Agent Council', icon: Network },
-  { href: '/api-hub', label: 'India API Hub', icon: Plug },
+  { href: '/api-hub', label: 'Markets & API Hub', icon: Plug },
   { href: '/risk', label: 'Risk Management', icon: Gauge },
   { href: '/capital', label: 'Capital & Performance', icon: Landmark },
   { href: '/strategies', label: 'Strategy Center', icon: FlaskConical },

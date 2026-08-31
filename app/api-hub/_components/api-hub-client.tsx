@@ -5,6 +5,7 @@ import { Panel, LoadingPanel, StatusMessage, Stat } from '@/components/cockpit/p
 import {
   Plug, Landmark, Clock3, Database, KeyRound, ShieldCheck, Activity,
   CalendarDays, CandlestickChart, ExternalLink, RefreshCw, Trash2, Star,
+  Globe2, Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -93,18 +94,43 @@ export default function ApiHubClient() {
   const [previewSel, setPreviewSel] = useState<{ provider: string; fn: string } | null>(null)
   const [preview, setPreview] = useState<any>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
+  const [marketsData, setMarketsData] = useState<any>(null)
+  const [marketBusy, setMarketBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/india')
+      const [res, mres] = await Promise.all([fetch('/api/india'), fetch('/api/markets')])
       if (!res?.ok) throw new Error('failed')
       setData(await res.json())
+      if (mres?.ok) setMarketsData(await mres.json())
     } catch {
-      setError('Failed to load the India API hub.')
+      setError('Failed to load the API hub.')
     } finally {
       setLoading(false)
     }
   }, [])
+
+  const toggleMarket = useCallback(async (key: string) => {
+    const current: string[] = marketsData?.selected ?? []
+    const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key]
+    if (next.length === 0) { toast.error('Keep at least one market selected.'); return }
+    setMarketBusy(true)
+    try {
+      const res = await fetch('/api/markets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'set_selection', keys: next }),
+      })
+      const d = await res.json().catch(() => null)
+      if (!res?.ok) throw new Error(d?.error ?? 'failed')
+      setMarketsData((m: any) => ({ ...m, selected: d?.selected ?? next, explicit: true }))
+      toast.success('Market selection saved.')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to update markets.')
+    } finally {
+      setMarketBusy(false)
+    }
+  }, [marketsData])
 
   useEffect(() => { load() }, [load])
 
@@ -173,14 +199,52 @@ export default function ApiHubClient() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold text-white flex items-center gap-2">
-            <Plug className="h-5 w-5 text-cyan-400" /> India Market API Hub
+            <Plug className="h-5 w-5 text-cyan-400" /> Global Markets & API Hub
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            NSE · BSE · MCX — AI signals via DalalAI, market data via IndianAPI.in, execution via Indian broker APIs. Indian instruments run through the same
-            EMIL risk pipeline: Guardian, the 0.05-lot aggregate exposure law and monetary-risk validation apply unchanged.
+            Pick the markets EMIL trades — one or many. Forex & CFDs via MT5 brokers, India via DalalAI / IndianAPI + SEBI-registered broker APIs,
+            US and other equity markets structure-ready with data feeds to follow. Every market runs through the same EMIL risk pipeline:
+            Guardian, the aggregate exposure law and monetary-risk validation apply unchanged.
           </p>
         </div>
       </div>
+
+      {/* Market selection */}
+      <Panel title="Your Markets — select one or many" icon={Globe2} accent="cyan">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {(marketsData?.markets ?? []).map((m: any) => {
+            const selected = (marketsData?.selected ?? []).includes(m?.key)
+            return (
+              <button
+                key={m?.id}
+                onClick={() => toggleMarket(m?.key)}
+                disabled={marketBusy}
+                className={`text-left rounded-lg border p-3 transition-colors disabled:opacity-60 ${selected ? 'border-cyan-500/60 bg-cyan-500/5' : 'border-border bg-secondary/30 hover:border-slate-600'}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-white">{m?.name}</span>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${selected ? 'border-cyan-500 bg-cyan-500 text-slate-950' : 'border-slate-600 text-transparent'}`}>
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">{m?.region} · {m?.exchanges}</div>
+                <div className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">{m?.description}</div>
+                <div className="mt-2">
+                  {m?.dataStatus === 'live' ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">Live</span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-300">Data coming soon</span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-slate-500 mt-3">
+          EMIL scans and proposes trades only in your selected markets. Markets marked “data coming soon” are structure-ready — instruments and
+          risk normalization exist, the live feed lands next. Selection is per user and every change is audit-logged.
+        </p>
+      </Panel>
 
       {/* Exchange sessions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -300,8 +364,8 @@ export default function ApiHubClient() {
       {/* Broker / execution providers */}
       <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">
         <p className="text-xs text-slate-500 mb-3">
-          Order execution on NSE/BSE/MCX requires an Indian broker API. Configure one below and set it as the primary execution provider.
-          Credentials are stored server-side and never sent to the browser.
+          All major SEBI-registered Indian brokers with public trading APIs. Configure the one(s) you hold an account with and set a primary
+          execution provider. Credentials are stored server-side and never sent to the browser.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {brokers.map((p) => {
@@ -370,12 +434,13 @@ export default function ApiHubClient() {
       </Panel>
 
       {/* Instruments */}
-      <Panel title="Indian Instruments — Normalized Catalog" icon={CandlestickChart} accent="violet">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <Stat label="NSE instruments" value={byExchange('NSE').length} />
-          <Stat label="BSE instruments" value={byExchange('BSE').length} />
-          <Stat label="MCX instruments" value={byExchange('MCX').length} />
-          <Stat label="Currency" value="INR" sub="Account conversion applies" />
+      <Panel title="Instrument Catalog — India & US (Normalized)" icon={CandlestickChart} accent="violet">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
+          <Stat label="NSE" value={byExchange('NSE').length} />
+          <Stat label="BSE" value={byExchange('BSE').length} />
+          <Stat label="MCX" value={byExchange('MCX').length} />
+          <Stat label="NYSE · NASDAQ" value={byExchange('NYSE').length + byExchange('NASDAQ').length} sub="Data feed coming" />
+          <Stat label="Currencies" value="INR · USD" sub="Account conversion applies" />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -388,7 +453,7 @@ export default function ApiHubClient() {
                 <th className="py-2 pr-3 text-right">Lot size</th>
                 <th className="py-2 pr-3 text-right">Tick</th>
                 <th className="py-2 pr-3 text-right">Price band</th>
-                <th className="py-2 pr-0 text-right">Ref price ₹</th>
+                <th className="py-2 pr-0 text-right">Ref price</th>
               </tr>
             </thead>
             <tbody>
@@ -401,7 +466,7 @@ export default function ApiHubClient() {
                   <td className="py-1.5 pr-3 text-right num">{i?.lotSize ?? '—'}</td>
                   <td className="py-1.5 pr-3 text-right num">{i?.spec?.tickSize ?? '—'}</td>
                   <td className="py-1.5 pr-3 text-right num">{i?.priceBandPct ? `±${i.priceBandPct}%` : '—'}</td>
-                  <td className="py-1.5 pr-0 text-right num">{i?.currentPrice?.toLocaleString?.('en-IN') ?? i?.currentPrice}</td>
+                  <td className="py-1.5 pr-0 text-right num">{i?.quoteCurrency === 'INR' ? '₹' : '$'}{i?.currentPrice?.toLocaleString?.(i?.quoteCurrency === 'INR' ? 'en-IN' : 'en-US') ?? i?.currentPrice}</td>
                 </tr>
               ))}
             </tbody>

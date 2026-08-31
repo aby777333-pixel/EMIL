@@ -527,7 +527,26 @@ async function main() {
     if (!existingSpec) await prisma.instrumentSpecification.create({ data: { instrumentId: inst.id, ...spec } });
   }
 
-  console.log('Seed complete (incl. India Market API Hub).');
+  // ---- Global markets catalog + US starter instruments ----
+  const { MARKETS, US_INSTRUMENTS } = await import('../lib/markets');
+  for (const m of MARKETS) {
+    await prisma.market.upsert({
+      where: { key: m.key },
+      update: { name: m.name, region: m.region, exchanges: m.exchanges, assetClasses: m.assetClasses, description: m.description, dataStatus: m.dataStatus, sortOrder: m.sortOrder },
+      create: { key: m.key, name: m.name, region: m.region, exchanges: m.exchanges, assetClasses: m.assetClasses, description: m.description, dataStatus: m.dataStatus, sortOrder: m.sortOrder },
+    });
+  }
+  for (const u of US_INSTRUMENTS) {
+    const inst = await prisma.instrument.upsert({
+      where: { symbol: u.symbol },
+      update: { exchange: u.exchange, segment: 'equity', country: 'US' },
+      create: { symbol: u.symbol, name: u.name, assetClass: 'stocks', exchange: u.exchange, segment: 'equity', country: 'US', quoteCurrency: 'USD', currentPrice: u.currentPrice },
+    });
+    const existingSpec = await prisma.instrumentSpecification.findUnique({ where: { instrumentId: inst.id } });
+    if (!existingSpec) await prisma.instrumentSpecification.create({ data: { instrumentId: inst.id, contractSize: 1, tickSize: 0.01, tickValue: 0.01, pipValuePerLot: 1, minLot: 1, lotStep: 1, maxLot: 10000, marginPerLot: u.currentPrice, typicalSpreadPips: 0.01, currentSpreadPips: 0.01 } });
+  }
+
+  console.log('Seed complete (incl. global markets + India API Hub).');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

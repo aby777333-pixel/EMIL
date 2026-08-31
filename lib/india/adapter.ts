@@ -105,8 +105,12 @@ export async function testProviderConnection(p: ProviderRow): Promise<TestResult
         // credentials as configured and verify on the first live data call.
         return { ok: true, message: 'Credentials saved. Breeze uses per-request checksums — the link is fully verified on the first live data request.' }
       }
-      default:
-        return { ok: false, message: `Unknown provider "${p.key}".` }
+      default: {
+        // Brokers without a bespoke tester (TOTP/OTP or checksum login flows
+        // that cannot be exercised server-side without a live session).
+        if (!p.apiKey && !p.accessToken) return { ok: false, message: 'Add the API credentials first — see the Docs link for where to generate them.' }
+        return { ok: true, message: 'Credentials saved. This broker uses an interactive login flow — the link is fully verified on the first live request.' }
+      }
     }
   } catch (e: any) {
     if (e?.name === 'AbortError') return { ok: false, message: 'Connection test timed out after 8s.' }

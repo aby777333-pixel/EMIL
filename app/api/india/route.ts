@@ -30,7 +30,7 @@ export async function GET() {
       prisma.exchangeSession.findMany({ orderBy: [{ exchange: 'asc' }, { segment: 'asc' }] }),
       prisma.indiaHoliday.findMany({ orderBy: { date: 'asc' } }),
       prisma.instrument.findMany({
-        where: { exchange: { in: ['NSE', 'BSE', 'MCX'] } },
+        where: { exchange: { not: 'GLOBAL' } },
         include: { spec: true },
         orderBy: [{ exchange: 'asc' }, { symbol: 'asc' }],
       }),

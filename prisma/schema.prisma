@@ -23,8 +23,25 @@ model User {
   auditLogs     AuditLog[]
   riskOverrides RiskOverride[]
   knowledgeItems KnowledgeItem[]
+  selectedMarkets String? // comma list of Market.key; null/empty = all markets
 
   @@map("users")
+}
+
+// ============ GLOBAL MARKETS ============
+
+model Market {
+  id           String @id @default(cuid())
+  key          String @unique // forex | metals | indices | energies | crypto | india | us_stocks | europe_stocks | asia_stocks
+  name         String
+  region       String
+  exchanges    String // comma list, display only
+  assetClasses String // comma list mapping to Instrument.assetClass
+  description  String
+  dataStatus   String @default("live") // live | coming_soon
+  sortOrder    Int    @default(100)
+
+  @@map("markets")
 }
 
 // ============ BROKERS & ACCOUNTS ============
