@@ -9,11 +9,16 @@ energies, crypto, stocks **and the Indian market (NSE / BSE / MCX)**.
 
 ## India Market API Hub (`/api-hub`)
 
-- **Market data**: [IndianAPI.in Indian Stock Market API](https://indianapi.in/indian-stock-market)
-  — single `X-Api-Key` key, endpoints for stock details, trending, NSE/BSE most active,
-  price shockers, 52-week high/low, MCX commodities, mutual funds, historical data and
-  forecasts. Save the key on the API Hub page; live previews and the `/api/india/market`
-  proxy start working immediately (the key never reaches the browser).
+- **AI signals (primary)**: [DalalAI Developer API](https://dalalai.com/developer-api)
+  — single `X-API-Key` key, endpoints for daily AI predictions, convergence scores,
+  smart-money/institutional flow, FII/DII flows, insider trading, fundamentals,
+  delivery volume, earnings calendar, market-regime detection and a breakout scanner
+  over 500+ NSE stocks.
+- **Market data (alternate)**: [IndianAPI.in Indian Stock Market API](https://indianapi.in/indian-stock-market)
+  — stock details, trending, NSE/BSE most active, price shockers, 52-week high/low,
+  MCX commodities, mutual funds, historical data and forecasts.
+  Save either key on the API Hub page; live previews and the `/api/india/market`
+  proxy start working immediately (keys never reach the browser).
 - **Execution (broker APIs)**: Zerodha Kite Connect, Upstox v2, Angel One SmartAPI,
   DhanHQ v2, Fyers v3, ICICI Breeze — credential storage, connection tests, and a
   primary-execution selector. Orders stay disabled until a broker is connected AND

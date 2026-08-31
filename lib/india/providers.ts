@@ -19,6 +19,21 @@ export type IndiaProviderDef = {
 
 export const INDIA_PROVIDERS: IndiaProviderDef[] = [
   {
+    key: 'dalalai',
+    name: 'DalalAI Developer API',
+    vendor: 'DalalAI',
+    docsUrl: 'https://dalalai.com/developer-api',
+    baseUrl: 'https://api.dalalai.com/v1',
+    authType: 'api_key',
+    authNote:
+      'Single API key in the X-API-Key header — generate keys from the DalalAI dashboard with per-key endpoint scoping and rate limits. JSON responses by default (gzip); CSV via ?format=csv on paid plans.',
+    exchanges: 'NSE,BSE',
+    capabilities:
+      'ai_predictions,convergence_scores,smart_money,fii_dii_flows,insider_trading,fundamentals,delivery_volume,earnings_calendar,market_regime,breakout_scanner,stock_detail,webhooks',
+    rateLimitNote: 'Per-second burst by plan: Free 10/s, Starter 50/s, Pro 200/s. Monthly call caps apply (Free 1,000 → Pro 500,000).',
+    pricingNote: 'Free ₹0 (1,000 calls/mo, JSON only) → Starter ₹1,999 → Pro ₹9,999 (webhooks) → Enterprise. AI-signal DATA only — order execution needs a broker provider below.',
+  },
+  {
     key: 'indianapi',
     name: 'Indian Stock Market API',
     vendor: 'IndianAPI.in',

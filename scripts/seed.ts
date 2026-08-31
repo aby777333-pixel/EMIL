@@ -491,7 +491,7 @@ async function main() {
         key: p.key, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
         authType: p.authType, authNote: p.authNote, exchanges: p.exchanges,
         capabilities: p.capabilities, rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote,
-        isPrimaryData: p.key === 'indianapi',
+        isPrimaryData: p.key === 'dalalai',
       },
     });
   }

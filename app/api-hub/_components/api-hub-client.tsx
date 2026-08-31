@@ -45,13 +45,24 @@ const CRED_FIELDS: Record<string, { key: string; label: string; secret?: boolean
   static_token: [{ key: 'accessToken', label: 'Access token (30-day)', secret: true }],
 }
 
-const PREVIEWS: { fn: string; label: string }[] = [
-  { fn: 'trending', label: 'Trending' },
-  { fn: 'nse_most_active', label: 'NSE most active' },
-  { fn: 'bse_most_active', label: 'BSE most active' },
-  { fn: 'commodities', label: 'MCX commodities' },
-  { fn: 'price_shockers', label: 'Price shockers' },
-]
+const PREVIEWS: Record<string, { fn: string; label: string }[]> = {
+  dalalai: [
+    { fn: 'predictions', label: 'AI predictions' },
+    { fn: 'market_regime', label: 'Market regime' },
+    { fn: 'smart_money', label: 'Smart money' },
+    { fn: 'fii_dii', label: 'FII/DII flows' },
+    { fn: 'breakout_scanner', label: 'Breakouts' },
+  ],
+  indianapi: [
+    { fn: 'trending', label: 'Trending' },
+    { fn: 'nse_most_active', label: 'NSE most active' },
+    { fn: 'bse_most_active', label: 'BSE most active' },
+    { fn: 'commodities', label: 'MCX commodities' },
+    { fn: 'price_shockers', label: 'Price shockers' },
+  ],
+}
+
+const DATA_KEYS = ['dalalai', 'indianapi']
 
 function StatusBadge({ status }: { status: string }) {
   return (
@@ -79,7 +90,7 @@ export default function ApiHubClient() {
   const [busyKey, setBusyKey] = useState('')
   const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({})
   const [openForm, setOpenForm] = useState('')
-  const [previewFn, setPreviewFn] = useState('trending')
+  const [previewSel, setPreviewSel] = useState<{ provider: string; fn: string } | null>(null)
   const [preview, setPreview] = useState<any>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
 
@@ -129,14 +140,14 @@ export default function ApiHubClient() {
     setOpenForm('')
   }, [drafts, post])
 
-  const runPreview = useCallback(async (fn: string) => {
-    setPreviewFn(fn)
+  const runPreview = useCallback(async (provider: string, fn: string) => {
+    setPreviewSel({ provider, fn })
     setPreviewBusy(true)
     setPreview(null)
     try {
-      const res = await fetch(`/api/india/market?fn=${fn}`)
+      const res = await fetch(`/api/india/market?provider=${provider}&fn=${fn}`)
       const d = await res.json().catch(() => null)
-      if (res.status === 409) { setPreview({ notConfigured: true }); return }
+      if (res.status === 409) { setPreview({ notConfigured: true, message: d?.message }); return }
       if (!res.ok) { setPreview({ error: d?.message ?? 'Request failed.' }); return }
       setPreview({ data: d?.data })
     } catch {
@@ -150,8 +161,8 @@ export default function ApiHubClient() {
   if (error) return <StatusMessage text={error} />
 
   const providers: any[] = data?.providers ?? []
-  const featured = providers.find((p) => p?.key === 'indianapi')
-  const brokers = providers.filter((p) => p?.key !== 'indianapi')
+  const dataProviders = DATA_KEYS.map((k) => providers.find((p) => p?.key === k)).filter(Boolean)
+  const brokers = providers.filter((p) => !DATA_KEYS.includes(p?.key))
   const sessions: any[] = data?.sessions ?? []
   const instruments: any[] = data?.instruments ?? []
   const holidays: any[] = data?.holidays ?? []
@@ -165,7 +176,7 @@ export default function ApiHubClient() {
             <Plug className="h-5 w-5 text-cyan-400" /> India Market API Hub
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            NSE · BSE · MCX — market data via IndianAPI.in, execution via Indian broker APIs. Indian instruments run through the same
+            NSE · BSE · MCX — AI signals via DalalAI, market data via IndianAPI.in, execution via Indian broker APIs. Indian instruments run through the same
             EMIL risk pipeline: Guardian, the 0.05-lot aggregate exposure law and monetary-risk validation apply unchanged.
           </p>
         </div>
@@ -187,81 +198,104 @@ export default function ApiHubClient() {
         ))}
       </div>
 
-      {/* Featured data provider: IndianAPI.in */}
-      {featured ? (
-        <Panel title="Market Data — IndianAPI.in (Indian Stock Market API)" icon={Database} accent="emerald">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <StatusBadge status={featured?.status} />
-                {featured?.isPrimaryData ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-300"><Star className="h-3 w-3" /> Primary data</span>
-                ) : null}
-              </div>
-              <p className="text-xs text-slate-400">{featured?.authNote}</p>
-              <Chips csv={featured?.exchanges} tone="text-cyan-300 bg-cyan-500/10" />
-              <Chips csv={featured?.capabilities} />
-              <div className="text-[11px] text-slate-500">{featured?.rateLimitNote}</div>
-              {featured?.lastError ? <div className="text-[11px] text-red-400">Last error: {featured.lastError}</div> : null}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <input
-                  type="password"
-                  placeholder={featured?.hasApiKey ? `Key saved (${featured?.apiKeyMasked}) — paste to replace` : 'Paste IndianAPI.in API key'}
-                  value={drafts?.indianapi?.apiKey ?? ''}
-                  onChange={(e) => setDrafts((d) => ({ ...d, indianapi: { ...d?.indianapi, apiKey: e.target.value } }))}
-                  className="w-full sm:w-64 rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60"
-                />
-                <button
-                  onClick={() => saveCreds(featured)}
-                  disabled={busyKey !== ''}
-                  className="rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1.5"
-                >
-                  <KeyRound className="h-3.5 w-3.5" /> Save key
-                </button>
-                <button
-                  onClick={() => post({ type: 'test_connection', key: 'indianapi' }, 'Connected.')}
-                  disabled={busyKey !== ''}
-                  className="rounded-md bg-secondary hover:bg-secondary/70 border border-border px-3 py-1.5 text-xs font-semibold text-slate-200 flex items-center gap-1.5"
-                >
-                  <Activity className="h-3.5 w-3.5" /> Test connection
-                </button>
-                <a href={featured?.docsUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline flex items-center gap-1">
-                  Docs <ExternalLink className="h-3 w-3" />
-                </a>
+      {/* Data providers: DalalAI (primary) + IndianAPI.in */}
+      <Panel title="Market Data & AI Signals — India" icon={Database} accent="emerald">
+        <div className="space-y-4">
+          {dataProviders.map((dp: any) => (
+            <div key={dp?.id} className="rounded-lg border border-border/70 bg-secondary/20 p-3">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-white">{dp?.name}</span>
+                    <span className="text-[11px] text-slate-500">{dp?.vendor}</span>
+                    <StatusBadge status={dp?.status} />
+                    {dp?.isPrimaryData ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-300"><Star className="h-3 w-3" /> Primary data</span>
+                    ) : (
+                      <button
+                        onClick={() => post({ type: 'set_primary', key: dp?.key, role: 'data' }, `${dp?.name} is now the primary data provider.`)}
+                        disabled={busyKey !== ''}
+                        className="rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-[10px] text-slate-300 hover:border-amber-500/50 flex items-center gap-1"
+                      >
+                        <Star className="h-3 w-3" /> Set primary
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">{dp?.authNote}</p>
+                  <Chips csv={dp?.exchanges} tone="text-cyan-300 bg-cyan-500/10" />
+                  <Chips csv={dp?.capabilities} />
+                  <div className="text-[11px] text-slate-500">{dp?.rateLimitNote}</div>
+                  {dp?.lastError ? <div className="text-[11px] text-red-400">Last error: {dp.lastError}</div> : null}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                      type="password"
+                      placeholder={dp?.hasApiKey ? `Key saved (${dp?.apiKeyMasked}) — paste to replace` : `Paste ${dp?.vendor} API key`}
+                      value={drafts?.[dp?.key]?.apiKey ?? ''}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [dp?.key]: { ...d?.[dp?.key], apiKey: e.target.value } }))}
+                      className="w-full sm:w-60 rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/60"
+                    />
+                    <button
+                      onClick={() => saveCreds(dp)}
+                      disabled={busyKey !== ''}
+                      className="rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1.5"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" /> Save key
+                    </button>
+                    <button
+                      onClick={() => post({ type: 'test_connection', key: dp?.key }, 'Connected.')}
+                      disabled={busyKey !== ''}
+                      className="rounded-md bg-secondary hover:bg-secondary/70 border border-border px-3 py-1.5 text-xs font-semibold text-slate-200 flex items-center gap-1.5"
+                    >
+                      <Activity className="h-3.5 w-3.5" /> Test connection
+                    </button>
+                    <a href={dp?.docsUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline flex items-center gap-1">
+                      Docs <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+                <div className="lg:col-span-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {(PREVIEWS?.[dp?.key] ?? []).map((pv) => (
+                      <button
+                        key={pv.fn}
+                        onClick={() => runPreview(dp?.key, pv.fn)}
+                        className={`rounded-md px-2.5 py-1 text-[11px] border transition-colors ${previewSel?.provider === dp?.key && previewSel?.fn === pv.fn ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300' : 'border-border bg-secondary/50 text-slate-400 hover:text-slate-200'}`}
+                      >
+                        {pv.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const sel = previewSel
+                        if (sel && sel.provider === dp?.key) runPreview(sel.provider, sel.fn)
+                        else runPreview(dp?.key, PREVIEWS?.[dp?.key]?.[0]?.fn ?? '')
+                      }}
+                      className="rounded-md px-2 py-1 text-[11px] border border-border bg-secondary/50 text-slate-400 hover:text-slate-200"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${previewBusy && previewSel?.provider === dp?.key ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
+                  <div className="rounded-md border border-border/70 bg-secondary/30 p-2 h-48 overflow-auto">
+                    {previewSel?.provider !== dp?.key ? (
+                      <div className="text-xs text-slate-500 p-2">Pick a preview above to pull live data through the hub.</div>
+                    ) : previewBusy ? (
+                      <div className="text-xs text-slate-500 p-2">Fetching live data…</div>
+                    ) : preview?.notConfigured ? (
+                      <div className="text-xs text-amber-300 p-2">{preview?.message ?? `Save your ${dp?.vendor} key, then run a preview — live data will appear here.`}</div>
+                    ) : preview?.error ? (
+                      <div className="text-xs text-red-400 p-2">{preview.error}</div>
+                    ) : preview?.data ? (
+                      <pre className="text-[10px] leading-relaxed text-slate-300 whitespace-pre-wrap break-all">{JSON.stringify(preview.data, null, 2)}</pre>
+                    ) : (
+                      <div className="text-xs text-slate-500 p-2">Pick a preview above to pull live data through the hub.</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="lg:col-span-2">
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {PREVIEWS.map((pv) => (
-                  <button
-                    key={pv.fn}
-                    onClick={() => runPreview(pv.fn)}
-                    className={`rounded-md px-2.5 py-1 text-[11px] border transition-colors ${previewFn === pv.fn ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300' : 'border-border bg-secondary/50 text-slate-400 hover:text-slate-200'}`}
-                  >
-                    {pv.label}
-                  </button>
-                ))}
-                <button onClick={() => runPreview(previewFn)} className="rounded-md px-2 py-1 text-[11px] border border-border bg-secondary/50 text-slate-400 hover:text-slate-200">
-                  <RefreshCw className={`h-3 w-3 ${previewBusy ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-              <div className="rounded-md border border-border/70 bg-secondary/30 p-2 h-56 overflow-auto">
-                {previewBusy ? (
-                  <div className="text-xs text-slate-500 p-2">Fetching live data…</div>
-                ) : preview?.notConfigured ? (
-                  <div className="text-xs text-amber-300 p-2">Save your IndianAPI.in key, then run a preview — live NSE/BSE/MCX data will appear here.</div>
-                ) : preview?.error ? (
-                  <div className="text-xs text-red-400 p-2">{preview.error}</div>
-                ) : preview?.data ? (
-                  <pre className="text-[10px] leading-relaxed text-slate-300 whitespace-pre-wrap break-all">{JSON.stringify(preview.data, null, 2)}</pre>
-                ) : (
-                  <div className="text-xs text-slate-500 p-2">Pick a preview above to pull live market data through the hub.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Panel>
-      ) : null}
+          ))}
+        </div>
+      </Panel>
 
       {/* Broker / execution providers */}
       <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">

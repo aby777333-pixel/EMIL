@@ -26,6 +26,17 @@ const timeoutFetch = async (url: string, init: RequestInit = {}, ms = 8000): Pro
 export async function testProviderConnection(p: ProviderRow): Promise<TestResult> {
   try {
     switch (p.key) {
+      case 'dalalai': {
+        if (!p.apiKey) return { ok: false, message: 'API key required — generate one from the DalalAI dashboard (per-key scoping applies).' }
+        const res = await timeoutFetch(`${p.baseUrl}/market-regime`, {
+          headers: { 'X-API-Key': p.apiKey, Accept: 'application/json' },
+        })
+        if (res.status === 429) return { ok: false, message: 'DalalAI responded 429 — plan rate limit or monthly call cap reached.' }
+        if (res.status === 401 || res.status === 403) return { ok: false, message: `DalalAI rejected the key (${res.status}). Check the key and that its scope includes /market-regime.` }
+        const body = await res.json().catch(() => null)
+        if (res.ok && body) return { ok: true, message: 'Connected — market-regime endpoint returned live DalalAI signal data.' }
+        return { ok: false, message: `DalalAI responded ${res.status}.` }
+      }
       case 'indianapi': {
         if (!p.apiKey) return { ok: false, message: 'API key required — get it from the IndianAPI.in dashboard (API / Manage Keys).' }
         const res = await timeoutFetch(`${p.baseUrl}/trending`, {
