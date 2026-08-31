@@ -9,12 +9,13 @@ export type IndiaProviderDef = {
   vendor: string
   docsUrl: string
   baseUrl: string
-  authType: 'api_key' | 'api_key_secret_daily_token' | 'oauth2' | 'totp_login' | 'static_token'
+  authType: 'api_key' | 'api_key_secret' | 'api_key_secret_daily_token' | 'oauth2' | 'totp_login' | 'static_token' | 'mt_account'
   authNote: string
   exchanges: string
   capabilities: string
   rateLimitNote: string
   pricingNote: string
+  markets?: string // comma list of Market.key; defaults to 'india'
 }
 
 export const INDIA_PROVIDERS: IndiaProviderDef[] = [

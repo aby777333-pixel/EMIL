@@ -478,19 +478,23 @@ async function main() {
 
   // ---- India Market API Hub (NSE / BSE / MCX) ----
   const { INDIA_PROVIDERS, INDIA_INSTRUMENTS, INDIA_EXCHANGE_SESSIONS, INDIA_HOLIDAYS_2026 } = await import('../lib/india/providers');
+  const { GLOBAL_BROKERS } = await import('../lib/global-brokers');
 
-  for (const p of INDIA_PROVIDERS) {
+  for (const p of [...INDIA_PROVIDERS, ...GLOBAL_BROKERS]) {
+    const markets = p.markets ?? 'india';
     await prisma.indiaApiProvider.upsert({
       where: { key: p.key },
       update: {
         name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
         authType: p.authType, authNote: p.authNote, exchanges: p.exchanges,
         capabilities: p.capabilities, rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote,
+        markets,
       },
       create: {
         key: p.key, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
         authType: p.authType, authNote: p.authNote, exchanges: p.exchanges,
         capabilities: p.capabilities, rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote,
+        markets,
         isPrimaryData: p.key === 'dalalai',
       },
     });

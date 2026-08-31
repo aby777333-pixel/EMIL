@@ -145,7 +145,8 @@ model InstrumentSpecification {
 
 model IndiaApiProvider {
   id             String    @id @default(cuid())
-  key            String    @unique // zerodha_kite | upstox | angel_one | dhan | fyers | icici_breeze
+  key            String    @unique // zerodha_kite | upstox | angel_one | dhan | fyers | icici_breeze | oanda | alpaca | binance | …
+  markets        String    @default("india") // comma list of Market.key this provider serves
   name           String
   vendor         String
   docsUrl        String

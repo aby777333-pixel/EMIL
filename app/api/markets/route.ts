@@ -10,15 +10,19 @@ export async function GET() {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = (session.user as any).id as string
   try {
-    const [markets, user] = await Promise.all([
+    const [markets, user, providers] = await Promise.all([
       prisma.market.findMany({ orderBy: { sortOrder: 'asc' } }),
       prisma.user.findUnique({ where: { id: userId }, select: { selectedMarkets: true } }),
+      prisma.indiaApiProvider.findMany({
+        select: { key: true, name: true, vendor: true, status: true, markets: true, isPrimaryData: true, isPrimaryExec: true },
+        orderBy: { name: 'asc' },
+      }),
     ])
     const allKeys = markets.map((m) => m.key)
     const raw = (user?.selectedMarkets ?? '').split(',').map((s) => s.trim()).filter(Boolean)
     const selected = raw.filter((k) => allKeys.includes(k))
     // null/empty selection = all markets enabled
-    return NextResponse.json({ markets, selected: selected.length > 0 ? selected : allKeys, explicit: selected.length > 0 })
+    return NextResponse.json({ markets, selected: selected.length > 0 ? selected : allKeys, explicit: selected.length > 0, providers })
   } catch (e) {
     console.error(e)
     return NextResponse.json({ error: 'Failed to load markets' }, { status: 500 })

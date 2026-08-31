@@ -28,6 +28,16 @@ const LIVE_STYLES: Record<string, string> = {
 
 const CRED_FIELDS: Record<string, { key: string; label: string; secret?: boolean }[]> = {
   api_key: [{ key: 'apiKey', label: 'API key', secret: true }],
+  api_key_secret: [
+    { key: 'apiKey', label: 'API key', secret: true },
+    { key: 'apiSecret', label: 'API secret', secret: true },
+    { key: 'clientCode', label: 'Passphrase / client id (if required)' },
+  ],
+  mt_account: [
+    { key: 'clientCode', label: 'Account number' },
+    { key: 'apiSecret', label: 'Account password', secret: true },
+    { key: 'apiKey', label: 'Server name (e.g. ICMarketsSC-Live04)' },
+  ],
   api_key_secret_daily_token: [
     { key: 'apiKey', label: 'API key', secret: true },
     { key: 'apiSecret', label: 'API secret', secret: true },
@@ -64,6 +74,26 @@ const PREVIEWS: Record<string, { fn: string; label: string }[]> = {
 }
 
 const DATA_KEYS = ['dalalai', 'indianapi']
+
+const BROKER_SECTIONS: { key: string; title: string; note: string }[] = [
+  { key: 'india', title: 'India — SEBI-Registered Brokers', note: 'NSE · BSE · MCX execution' },
+  { key: 'forex', title: 'Forex & CFDs — Global Brokers', note: 'Forex, metals, indices, energies' },
+  { key: 'us_stocks', title: 'US Stocks', note: 'NYSE · NASDAQ' },
+  { key: 'europe_stocks', title: 'Europe Stocks', note: 'LSE · Euronext · XETRA' },
+  { key: 'asia_stocks', title: 'Asia-Pacific Stocks', note: 'HKEX · TSE · SGX · ASX' },
+  { key: 'crypto', title: 'Crypto Exchanges', note: 'Spot & derivatives · 24/7' },
+]
+// markets whose brokers live under the Forex & CFDs section
+const FOREX_ALIAS = ['forex', 'metals', 'indices', 'energies']
+
+const homeSection = (marketsCsv: string) => {
+  const keys = (marketsCsv ?? 'india').split(',').map((s) => s.trim())
+  for (const k of keys) {
+    if (FOREX_ALIAS.includes(k)) return 'forex'
+    if (BROKER_SECTIONS.some((s) => s.key === k)) return k
+  }
+  return 'india'
+}
 
 function StatusBadge({ status }: { status: string }) {
   return (
@@ -189,6 +219,10 @@ export default function ApiHubClient() {
   const providers: any[] = data?.providers ?? []
   const dataProviders = DATA_KEYS.map((k) => providers.find((p) => p?.key === k)).filter(Boolean)
   const brokers = providers.filter((p) => !DATA_KEYS.includes(p?.key))
+  const selectedMarkets: string[] = marketsData?.selected ?? []
+  const marketVisible = (csv: string) =>
+    selectedMarkets.length === 0 || (csv ?? 'india').split(',').some((k) => selectedMarkets.includes(k.trim()))
+  const indiaOn = selectedMarkets.length === 0 || selectedMarkets.includes('india')
   const sessions: any[] = data?.sessions ?? []
   const instruments: any[] = data?.instruments ?? []
   const holidays: any[] = data?.holidays ?? []
@@ -246,7 +280,8 @@ export default function ApiHubClient() {
         </p>
       </Panel>
 
-      {/* Exchange sessions */}
+      {/* Exchange sessions (India) */}
+      {indiaOn ? (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
         {sessions.map((s) => (
           <div key={s?.id} className="rounded-lg border border-border bg-card px-3 py-2.5">
@@ -261,8 +296,10 @@ export default function ApiHubClient() {
           </div>
         ))}
       </div>
+      ) : null}
 
       {/* Data providers: DalalAI (primary) + IndianAPI.in */}
+      {indiaOn ? (
       <Panel title="Market Data & AI Signals — India" icon={Database} accent="emerald">
         <div className="space-y-4">
           {dataProviders.map((dp: any) => (
@@ -360,15 +397,26 @@ export default function ApiHubClient() {
           ))}
         </div>
       </Panel>
+      ) : null}
 
-      {/* Broker / execution providers */}
+      {/* Broker / execution providers, grouped by market and filtered by the user's selection */}
       <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">
         <p className="text-xs text-slate-500 mb-3">
-          All major SEBI-registered Indian brokers with public trading APIs. Configure the one(s) you hold an account with and set a primary
-          execution provider. Credentials are stored server-side and never sent to the browser.
+          Brokers and exchanges from around the world, shown for the markets you selected above — India shows SEBI-registered brokers,
+          forex/CFD and crypto venues are global, equity brokers appear under their home market. Configure the one(s) you hold an account
+          with and set a primary execution provider. Credentials are stored server-side and never sent to the browser.
         </p>
+        {BROKER_SECTIONS.map((sec) => {
+          const secBrokers = brokers.filter((p) => homeSection(p?.markets) === sec.key && marketVisible(p?.markets))
+          if (secBrokers.length === 0) return null
+          return (
+        <div key={sec.key} className="mb-5 last:mb-0">
+        <div className="flex items-baseline gap-2 mb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-300">{sec.title}</h3>
+          <span className="text-[10px] text-slate-500">{sec.note} · {secBrokers.length} providers</span>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {brokers.map((p) => {
+          {secBrokers.map((p) => {
             const fields = CRED_FIELDS?.[p?.authType] ?? CRED_FIELDS.api_key_secret_daily_token
             const isOpen = openForm === p?.key
             return (
@@ -431,6 +479,9 @@ export default function ApiHubClient() {
             )
           })}
         </div>
+        </div>
+          )
+        })}
       </Panel>
 
       {/* Instruments */}
@@ -480,6 +531,7 @@ export default function ApiHubClient() {
 
       {/* Holidays + safety note */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {indiaOn ? (
         <Panel title="Market Holidays (fixed-date)" icon={CalendarDays} accent="amber">
           <ul className="space-y-1.5">
             {holidays.map((h) => (
@@ -494,7 +546,8 @@ export default function ApiHubClient() {
             exchange calendar; EMIL treats unknown dates as normal sessions.
           </p>
         </Panel>
-        <Panel title="Risk Law — unchanged for India" icon={ShieldCheck} accent="red">
+        ) : null}
+        <Panel title="Risk Law — one pipeline for every market" icon={ShieldCheck} accent="red">
           <ul className="space-y-1.5 text-xs text-slate-300 list-disc pl-4">
             <li>Aggregate EMIL-controlled exposure cap applies across ALL markets — global and Indian positions count toward the same limit.</li>
             <li>Indian F&O trades in exchange lots: if one lot exceeds permitted monetary risk, EMIL rejects the trade — it never rounds up.</li>

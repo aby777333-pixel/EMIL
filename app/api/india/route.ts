@@ -11,7 +11,7 @@ const mask = (v?: string | null) => (v ? `${v.slice(0, 3)}••••${v.slice(
 
 function publicProvider(p: any) {
   return {
-    id: p.id, key: p.key, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
+    id: p.id, key: p.key, markets: p.markets, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
     authType: p.authType, authNote: p.authNote, exchanges: p.exchanges, capabilities: p.capabilities,
     rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote, status: p.status,
     isPrimaryData: p.isPrimaryData, isPrimaryExec: p.isPrimaryExec,

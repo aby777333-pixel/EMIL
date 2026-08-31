@@ -12,12 +12,15 @@ import { fmtMoney, fmtSigned, fmtPct, fmtNum, plColor, healthColor, volColor, MO
 export function DashboardClient() {
   const [data, setData] = useState<any>(null)
   const [error, setError] = useState('')
+  const [marketsData, setMarketsData] = useState<any>(null)
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/dashboard')
       if (!res?.ok) throw new Error('load failed')
       setData(await res.json())
+      // market scope is auxiliary — never block the dashboard on it
+      fetch('/api/markets').then(async (m) => { if (m?.ok) setMarketsData(await m.json()) }).catch(() => {})
     } catch (e) {
       console.error('dashboard load error', e)
       setError('Unable to load dashboard data. Please refresh.')
@@ -68,6 +71,34 @@ export function DashboardClient() {
           {st?.armed ? 'Manage ARM / Mode →' : 'ARM EMIL →'}
         </Link>
       </div>
+
+      {/* Market scope */}
+      {marketsData?.markets?.length ? (
+        <div className="rounded-lg border border-border bg-card px-4 py-3 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1.5">
+            <Globe2 className="h-3.5 w-3.5 text-cyan-400" /> Market scope
+          </span>
+          {marketsData.markets.map((m: any) => {
+            const on = (marketsData?.selected ?? []).includes(m?.key)
+            const brokerCount = (marketsData?.providers ?? []).filter((p: any) =>
+              (p?.markets ?? '').split(',').some((k: string) => k.trim() === m?.key) &&
+              (p?.status === 'configured' || p?.status === 'connected')
+            ).length
+            return (
+              <span
+                key={m?.id}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] ${on ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200' : 'border-border/60 bg-secondary/40 text-slate-600 line-through'}`}
+                title={`${m?.exchanges}${m?.dataStatus === 'coming_soon' ? ' · data coming soon' : ''}`}
+              >
+                {m?.name}
+                {on && m?.dataStatus === 'coming_soon' ? <span className="text-[9px] text-amber-400 no-underline">soon</span> : null}
+                {on && brokerCount > 0 ? <span className="text-[9px] text-emerald-400">{brokerCount} linked</span> : null}
+              </span>
+            )
+          })}
+          <Link href="/api-hub" className="ml-auto text-[11px] text-cyan-400 hover:underline">Configure markets & brokers →</Link>
+        </div>
+      ) : null}
 
       {/* Account metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
