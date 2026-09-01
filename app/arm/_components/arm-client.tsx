@@ -50,12 +50,15 @@ export default function ArmClient() {
 
   const load = useCallback(async () => {
     try {
-      const [sRes, rRes] = await Promise.all([fetch('/api/state'), fetch('/api/risk')])
+      const [sRes, rRes] = await Promise.all([fetch('/api/state', { cache: 'no-store' }), fetch('/api/risk', { cache: 'no-store' })])
       const sData = await sRes?.json?.()
       const rData = await rRes?.json?.()
-      setState(sData?.state ?? null)
+      // /api/state returns the EmilState fields at the TOP level (spread), not
+      // nested under .state — reading sData.state left this page permanently
+      // showing DISARMED even after a successful arm.
+      setState(sData ?? null)
       setProfile(rData?.profile ?? null)
-      if (sData?.state?.mode) setMode(sData?.state?.mode === 'observation' ? 'semi_autonomous' : sData?.state?.mode)
+      if (sData?.mode) setMode(sData.mode === 'observation' ? 'semi_autonomous' : sData.mode)
     } catch {
       setError('Failed to load EMIL state.')
     } finally {
@@ -250,7 +253,10 @@ export default function ArmClient() {
                 onPointerDown={startHold}
                 onPointerUp={cancelHold}
                 onPointerLeave={cancelHold}
+                onPointerCancel={cancelHold}
+                onContextMenu={(e) => e.preventDefault()}
                 disabled={!allAcked || armed || busy}
+                style={{ touchAction: 'none' }}
                 className={`relative w-full overflow-hidden rounded-md py-4 text-sm font-bold tracking-widest transition-all select-none ${
                   armed ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   : allAcked ? 'bg-cyan-600 hover:bg-cyan-500 text-white terminal-glow' : 'bg-slate-800 text-slate-500 cursor-not-allowed'

@@ -35,10 +35,11 @@ export default function TrustClient() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/state')
+      const res = await fetch('/api/state', { cache: 'no-store' })
       if (!res?.ok) throw new Error('failed')
       const d = await res.json()
-      setState(d?.state ?? null)
+      // /api/state returns the EmilState fields at the top level, not under .state
+      setState(d ?? null)
     } catch {
       setError('Failed to load trust state.')
     } finally {
