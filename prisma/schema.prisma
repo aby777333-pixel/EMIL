@@ -624,3 +624,201 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+// ============ TEACH EMIL — RESEARCH INTELLIGENCE SYSTEM ============
+// Ingest → attribute → understand → question → structure → test → challenge →
+// validate → remember → hypothesize → retest → monitor → evolve.
+// Nothing learned is believed; every claim starts as a hypothesis.
+
+model ResearchSource {
+  id            String    @id @default(cuid())
+  submittedById String?
+  sourceType    String    @default("article") // youtube | article | document | dataset | manual
+  url           String?
+  title         String
+  author        String?   // channel / presenter / publisher
+  publishedAt   DateTime?
+  durationSec   Int?
+  metadata      String?   // JSON: oEmbed, chapters, page counts, etc.
+  extractedText String?   // transcript / article text (capped)
+  status        String    @default("queued") // queued | fetching | fetched | analyzing | analyzed | quarantined | error
+  reliability   String    @default("unrated") // unrated | low | medium | high | flagged
+  fetchError    String?
+  claimCount    Int       @default(0)
+  analysisJson  String?   // full extraction result JSON
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  claims        KnowledgeClaim[]
+
+  @@map("research_sources")
+}
+
+model KnowledgeConcept {
+  id                String    @id @default(cuid())
+  name              String    @unique
+  category          String    @default("other") // indicator | strategy | macro | instrument | regime | risk | psychology | session | event | central_bank | correlation | other
+  summary           String?
+  instruments       String?   // comma list
+  timeframes        String?   // comma list
+  regimes           String?   // comma list
+  validationStatus  String    @default("untested") // untested | testing | supported | weak | rejected | regime_dependent
+  confidence        Float     @default(20) // 0-100, evidence-based, never popularity-based
+  confidenceFactors String?   // JSON breakdown of +/- factors
+  sourceCount       Int       @default(0)
+  lastTestedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  claims            KnowledgeClaim[]
+  edgesFrom         KnowledgeEdge[] @relation("EdgeFrom")
+  edgesTo           KnowledgeEdge[] @relation("EdgeTo")
+
+  @@map("knowledge_concepts")
+}
+
+model KnowledgeClaim {
+  id               String    @id @default(cuid())
+  sourceId         String
+  source           ResearchSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  conceptId        String?
+  concept          KnowledgeConcept? @relation(fields: [conceptId], references: [id])
+  claimText        String
+  claimType        String    @default("hypothesis") // fact | opinion | prediction | trading_rule | performance_claim | psychology | hypothesis
+  instrument       String?
+  timeframe        String?
+  regime           String?
+  locationHint     String?   // video timestamp / page number
+  evidenceText     String?   // evidence supplied BY the source (not EMIL's validation)
+  validationStatus String    @default("untested") // untested | testing | supported | weak | rejected | regime_dependent
+  confidence       Float     @default(20)
+  lastTestedAt     DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@map("knowledge_claims")
+}
+
+model KnowledgeEdge {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      KnowledgeConcept @relation("EdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        KnowledgeConcept @relation("EdgeTo", fields: [toId], references: [id], onDelete: Cascade)
+  relation  String   // drives | inverse | correlates | filters | component_of | contradicts | precedes | regime_of
+  strength  Float    @default(0.5)
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([fromId, toId, relation])
+  @@map("knowledge_edges")
+}
+
+model ResearchHypothesis {
+  id           String   @id @default(cuid())
+  title        String
+  statement    String
+  originType   String   @default("source_claim") // source_claim | emil_generated | contradiction_probe | admin
+  sourceId     String?
+  conceptNames String?  // comma list
+  status       String   @default("proposed") // proposed | researching | testing | supported | weak | rejected | regime_dependent
+  confidence   Float    @default(20)
+  testPlan     String?
+  findings     String?
+  approvedBy   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("research_hypotheses")
+}
+
+model KnowledgeContradiction {
+  id             String   @id @default(cuid())
+  topic          String
+  sideA          String
+  sideB          String
+  sourceAId      String?
+  sourceBId      String?
+  analysisNote   String?  // WHEN does each side work (regime/timeframe/instrument)?
+  status         String   @default("open") // open | investigating | resolved_regime | resolved_timeframe | resolved_instrument | rejected_a | rejected_b | unresolved
+  resolutionNote String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("knowledge_contradictions")
+}
+
+model StrategyBlueprint {
+  id                String   @id @default(cuid())
+  code              String   // EMIL-FX-001, EMIL-EQ-002, ...
+  version           String   @default("1.0")
+  name              String
+  origin            String   @default("extracted") // extracted | emil_generated
+  sourceId          String?
+  market            String?  // forex | equities | indices | commodities | metals | energy | bonds | etf | futures | crypto | multi
+  instruments       String?
+  timeframe         String?
+  indicators        String?  // JSON array
+  entryLong         String?
+  entryShort        String?
+  stopLoss          String?
+  takeProfit        String?
+  positionSizing    String?
+  filters           String?
+  invalidConditions String?
+  completeness      String   @default("incomplete") // complete | incomplete — never invent missing rules
+  missingFields     String?
+  state             String   @default("LEARNED") // LEARNED | UNVERIFIED | RESEARCHING | BACKTESTED | REJECTED | PAPER_TRADING | HUMAN_APPROVED | LIVE_ELIGIBLE
+  labStage          String   @default("idea") // idea | rules | data_validation | backtest | out_of_sample | walk_forward | stress | regime | risk | score | paper | human_review
+  robustnessScore   Float    @default(0)
+  metrics           String?  // JSON latest metrics
+  regimeNotes       String?  // JSON: where it works / where it fails
+  changeLog         String?  // JSON array — full research lineage, never silently rewritten
+  isCurrent         Boolean  @default(true)
+  approvedBy        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  labRuns           LabRun[]
+
+  @@unique([code, version])
+  @@map("strategy_blueprints")
+}
+
+model LabRun {
+  id          String   @id @default(cuid())
+  blueprintId String
+  blueprint   StrategyBlueprint @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  runType     String   // data_validation | backtest | out_of_sample | walk_forward | stress | monte_carlo | regime | risk | score | paper
+  dataMode    String   @default("estimated") // estimated (LLM research estimate) | historical (real data engine)
+  status      String   @default("completed") // running | completed | failed
+  params      String?  // JSON
+  metrics     String?  // JSON
+  verdict     String?  // pass | weak | fail
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@map("lab_runs")
+}
+
+model ResearchNote {
+  id        String   @id @default(cuid())
+  title     String
+  studied   String?
+  learned   String?
+  stats     String?  // JSON counts: sources/claims/concepts/contradictions/hypotheses/strategies
+  content   String?  // markdown body
+  createdAt DateTime @default(now())
+
+  @@map("research_notebook")
+}
+
+model ConfidenceEvent {
+  id         String   @id @default(cuid())
+  targetType String   // concept | claim | hypothesis | strategy
+  targetId   String
+  targetName String?
+  previous   Float
+  next       Float
+  reason     String
+  actor      String   @default("emil") // emil | admin
+  createdAt  DateTime @default(now())
+
+  @@map("confidence_events")
+}

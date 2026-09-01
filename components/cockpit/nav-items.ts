@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
   Landmark, FlaskConical, GraduationCap, BrainCircuit, Settings, Plug,
+  Microscope, ShieldAlert,
 } from 'lucide-react'
 
 export const NAV_ITEMS = [
@@ -12,7 +13,9 @@ export const NAV_ITEMS = [
   { href: '/risk', label: 'Risk Management', icon: Gauge },
   { href: '/capital', label: 'Capital & Performance', icon: Landmark },
   { href: '/strategies', label: 'Strategy Center', icon: FlaskConical },
+  { href: '/lab', label: 'Strategy Lab', icon: Microscope },
   { href: '/teach', label: 'Teach EMIL', icon: GraduationCap },
   { href: '/trust', label: 'Trust & Metacognition', icon: BrainCircuit },
   { href: '/settings', label: 'Settings & Permissions', icon: Settings },
+  { href: '/admin', label: 'Super Admin', icon: ShieldAlert },
 ]

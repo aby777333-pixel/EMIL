@@ -8,6 +8,7 @@ import {
   Globe2, Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import LiveFeedPanel from './live-feed'
 
 const STATUS_STYLES: Record<string, string> = {
   connected: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -73,7 +74,8 @@ const PREVIEWS: Record<string, { fn: string; label: string }[]> = {
   ],
 }
 
-const DATA_KEYS = ['dalalai', 'indianapi']
+// Market-data & AI-signal providers and dedicated data vendors (not brokers).
+const DATA_KEYS = ['dalalai', 'indianapi', 'truedata', 'gfdl', 'spider_iris']
 
 const BROKER_SECTIONS: { key: string; title: string; note: string }[] = [
   { key: 'india', title: 'India — SEBI-Registered Brokers', note: 'NSE · BSE · MCX execution' },
@@ -398,6 +400,9 @@ export default function ApiHubClient() {
         </div>
       </Panel>
       ) : null}
+
+      {/* Live websocket feed — Upstox Market Data Feed V3 */}
+      {indiaOn ? <LiveFeedPanel /> : null}
 
       {/* Broker / execution providers, grouped by market and filtered by the user's selection */}
       <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">
