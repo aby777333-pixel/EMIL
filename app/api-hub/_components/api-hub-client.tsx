@@ -5,7 +5,7 @@ import { Panel, LoadingPanel, StatusMessage, Stat } from '@/components/cockpit/p
 import {
   Plug, Landmark, Clock3, Database, KeyRound, ShieldCheck, Activity,
   CalendarDays, CandlestickChart, ExternalLink, RefreshCw, Trash2, Star,
-  Globe2, Check,
+  Globe2, Check, ChevronDown,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LiveFeedPanel from './live-feed'
@@ -78,18 +78,18 @@ const PREVIEWS: Record<string, { fn: string; label: string }[]> = {
 // Market-data & AI-signal providers and dedicated data vendors (not brokers).
 const DATA_KEYS = ['dalalai', 'indianapi', 'truedata', 'gfdl', 'spider_iris']
 
-const BROKER_SECTIONS: { key: string; title: string; note: string }[] = [
-  { key: 'india', title: 'India — SEBI-Registered Brokers', note: 'NSE · BSE · MCX execution' },
-  { key: 'forex', title: 'Forex & CFDs — Global Brokers', note: 'Forex, metals, indices, energies' },
-  { key: 'us_stocks', title: 'United States', note: 'NYSE · NASDAQ' },
-  { key: 'uk_stocks', title: 'United Kingdom', note: 'LSE · FTSE' },
-  { key: 'europe_stocks', title: 'Europe', note: 'Euronext · XETRA · SIX' },
-  { key: 'asia_stocks', title: 'Asia-Pacific', note: 'TSE · HKEX · SGX · ASX' },
-  { key: 'canada_stocks', title: 'Canada', note: 'TSX · TSXV' },
-  { key: 'mena_stocks', title: 'Middle East', note: 'Tadawul · ADX · DFM · EGX' },
-  { key: 'africa_stocks', title: 'Africa', note: 'JSE · NGX' },
-  { key: 'latam_stocks', title: 'Latin America', note: 'B3 · BMV' },
-  { key: 'crypto', title: 'Crypto Exchanges', note: 'Spot & derivatives · 24/7' },
+const BROKER_SECTIONS: { key: string; title: string; note: string; tone: string; chip: string }[] = [
+  { key: 'india', title: 'India — SEBI-Registered Brokers', note: 'NSE · BSE · MCX', tone: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/5', chip: 'bg-emerald-500/15 text-emerald-300' },
+  { key: 'forex', title: 'Forex & CFDs — Global Brokers', note: 'Forex · metals · indices · energies', tone: 'text-cyan-300 border-cyan-500/30 bg-cyan-500/5', chip: 'bg-cyan-500/15 text-cyan-300' },
+  { key: 'us_stocks', title: 'United States', note: 'NYSE · NASDAQ · CBOE', tone: 'text-sky-300 border-sky-500/30 bg-sky-500/5', chip: 'bg-sky-500/15 text-sky-300' },
+  { key: 'uk_stocks', title: 'United Kingdom', note: 'LSE · FTSE · AIM', tone: 'text-violet-300 border-violet-500/30 bg-violet-500/5', chip: 'bg-violet-500/15 text-violet-300' },
+  { key: 'europe_stocks', title: 'Europe', note: 'Euronext · XETRA · SIX · BME · Nasdaq Nordic', tone: 'text-indigo-300 border-indigo-500/30 bg-indigo-500/5', chip: 'bg-indigo-500/15 text-indigo-300' },
+  { key: 'asia_stocks', title: 'Asia-Pacific', note: 'TSE · HKEX · SGX · ASX · KRX', tone: 'text-amber-300 border-amber-500/30 bg-amber-500/5', chip: 'bg-amber-500/15 text-amber-300' },
+  { key: 'canada_stocks', title: 'Canada', note: 'TSX · TSXV · CSE', tone: 'text-rose-300 border-rose-500/30 bg-rose-500/5', chip: 'bg-rose-500/15 text-rose-300' },
+  { key: 'mena_stocks', title: 'Middle East', note: 'Tadawul · ADX · DFM · EGX · QSE', tone: 'text-teal-300 border-teal-500/30 bg-teal-500/5', chip: 'bg-teal-500/15 text-teal-300' },
+  { key: 'africa_stocks', title: 'Africa', note: 'JSE · NGX · NSE Kenya', tone: 'text-lime-300 border-lime-500/30 bg-lime-500/5', chip: 'bg-lime-500/15 text-lime-300' },
+  { key: 'latam_stocks', title: 'Latin America', note: 'B3 · BMV · BYMA · Santiago', tone: 'text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/5', chip: 'bg-fuchsia-500/15 text-fuchsia-300' },
+  { key: 'crypto', title: 'Crypto Exchanges', note: 'Spot & derivatives · 24/7', tone: 'text-orange-300 border-orange-500/30 bg-orange-500/5', chip: 'bg-orange-500/15 text-orange-300' },
 ]
 // markets whose brokers live under the Forex & CFDs section
 const FOREX_ALIAS = ['forex', 'metals', 'indices', 'energies']
@@ -138,6 +138,8 @@ export default function ApiHubClient() {
   // 'all' or a specific region browses the FULL global broker directory —
   // built for partnership outreach across every market EMIL targets.
   const [regionFilter, setRegionFilter] = useState('selected')
+  // Per-section collapse state; undefined = smart default (open when linked)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     try {
@@ -445,13 +447,24 @@ export default function ApiHubClient() {
             (regionFilter === 'all' ? true : regionFilter === 'selected' ? marketVisible(p?.markets) : regionFilter === sec.key)
           )
           if (secBrokers.length === 0) return null
+          const configured = secBrokers.filter((p) => p?.status === 'configured' || p?.status === 'connected').length
+          // Collapsible: sections with configured brokers (or an explicit
+          // region pick) open by default; the rest start collapsed.
+          const sectionOpen = openSections[sec.key] ?? (configured > 0 || regionFilter === sec.key)
           return (
-        <div key={sec.key} className="mb-5 last:mb-0">
-        <div className="flex items-baseline gap-2 mb-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-300">{sec.title}</h3>
-          <span className="text-[10px] text-slate-500">{sec.note} · {secBrokers.length} providers</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div key={sec.key} className={`mb-3 last:mb-0 rounded-lg border ${sec.tone.split(' ').slice(1).join(' ')}`}>
+        <button
+          onClick={() => setOpenSections((s) => ({ ...s, [sec.key]: !sectionOpen }))}
+          className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left"
+        >
+          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${sectionOpen ? '' : '-rotate-90'} ${sec.tone.split(' ')[0]}`} />
+          <h3 className={`text-xs font-bold uppercase tracking-wider ${sec.tone.split(' ')[0]}`}>{sec.title}</h3>
+          <span className="text-[10px] text-slate-500 hidden sm:inline">{sec.note}</span>
+          <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${sec.chip}`}>{secBrokers.length} providers</span>
+          {configured > 0 ? <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300">{configured} linked</span> : null}
+        </button>
+        {sectionOpen ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 px-3.5 pb-3.5">
           {secBrokers.map((p) => {
             const fields = CRED_FIELDS?.[p?.authType] ?? CRED_FIELDS.api_key_secret_daily_token
             const isOpen = openForm === p?.key
@@ -515,6 +528,7 @@ export default function ApiHubClient() {
             )
           })}
         </div>
+        ) : null}
         </div>
           )
         })}
