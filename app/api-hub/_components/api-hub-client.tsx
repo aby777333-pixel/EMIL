@@ -81,9 +81,14 @@ const DATA_KEYS = ['dalalai', 'indianapi', 'truedata', 'gfdl', 'spider_iris']
 const BROKER_SECTIONS: { key: string; title: string; note: string }[] = [
   { key: 'india', title: 'India — SEBI-Registered Brokers', note: 'NSE · BSE · MCX execution' },
   { key: 'forex', title: 'Forex & CFDs — Global Brokers', note: 'Forex, metals, indices, energies' },
-  { key: 'us_stocks', title: 'US Stocks', note: 'NYSE · NASDAQ' },
-  { key: 'europe_stocks', title: 'Europe Stocks', note: 'LSE · Euronext · XETRA' },
-  { key: 'asia_stocks', title: 'Asia-Pacific Stocks', note: 'HKEX · TSE · SGX · ASX' },
+  { key: 'us_stocks', title: 'United States', note: 'NYSE · NASDAQ' },
+  { key: 'uk_stocks', title: 'United Kingdom', note: 'LSE · FTSE' },
+  { key: 'europe_stocks', title: 'Europe', note: 'Euronext · XETRA · SIX' },
+  { key: 'asia_stocks', title: 'Asia-Pacific', note: 'TSE · HKEX · SGX · ASX' },
+  { key: 'canada_stocks', title: 'Canada', note: 'TSX · TSXV' },
+  { key: 'mena_stocks', title: 'Middle East', note: 'Tadawul · ADX · DFM · EGX' },
+  { key: 'africa_stocks', title: 'Africa', note: 'JSE · NGX' },
+  { key: 'latam_stocks', title: 'Latin America', note: 'B3 · BMV' },
   { key: 'crypto', title: 'Crypto Exchanges', note: 'Spot & derivatives · 24/7' },
 ]
 // markets whose brokers live under the Forex & CFDs section
@@ -129,6 +134,10 @@ export default function ApiHubClient() {
   const [previewBusy, setPreviewBusy] = useState(false)
   const [marketsData, setMarketsData] = useState<any>(null)
   const [marketBusy, setMarketBusy] = useState(false)
+  // Region dropdown: 'selected' = only the user's chosen markets (default);
+  // 'all' or a specific region browses the FULL global broker directory —
+  // built for partnership outreach across every market EMIL targets.
+  const [regionFilter, setRegionFilter] = useState('selected')
 
   const load = useCallback(async () => {
     try {
@@ -408,15 +417,33 @@ export default function ApiHubClient() {
       {/* Live websocket feed — Upstox Market Data Feed V3 */}
       {indiaOn ? <LiveFeedPanel /> : null}
 
-      {/* Broker / execution providers, grouped by market and filtered by the user's selection */}
+      {/* Broker / execution providers, grouped by market. The region dropdown
+          browses the FULL global directory (partnership-outreach ready). */}
       <Panel title="Broker APIs — Execution & Streaming" icon={Landmark} accent="cyan">
-        <p className="text-xs text-slate-500 mb-3">
-          Brokers and exchanges from around the world, shown for the markets you selected above — India shows SEBI-registered brokers,
-          forex/CFD and crypto venues are global, equity brokers appear under their home market. Configure the one(s) you hold an account
-          with and set a primary execution provider. Credentials are stored server-side and never sent to the browser.
-        </p>
+        <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+          <p className="text-xs text-slate-500 flex-1 min-w-[16rem]">
+            Brokers and exchanges from around the world — India shows SEBI-registered brokers, forex/CFD and crypto venues are global,
+            equity brokers appear under their home market. Brokers marked <span className="text-amber-300">outreach target</span> have no
+            public API yet — they are EMIL partnership candidates. Credentials are stored server-side and never sent to the browser.
+          </p>
+          <label className="text-[11px] text-slate-400 flex items-center gap-2 shrink-0">
+            Region
+            <select
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+              className="rounded-md bg-background border border-border px-2.5 py-1.5 text-xs text-white"
+            >
+              <option value="selected">My selected markets</option>
+              <option value="all">All regions — full directory</option>
+              {BROKER_SECTIONS.map((s) => <option key={s.key} value={s.key}>{s.title}</option>)}
+            </select>
+          </label>
+        </div>
         {BROKER_SECTIONS.map((sec) => {
-          const secBrokers = brokers.filter((p) => homeSection(p?.markets) === sec.key && marketVisible(p?.markets))
+          const secBrokers = brokers.filter((p) =>
+            homeSection(p?.markets) === sec.key &&
+            (regionFilter === 'all' ? true : regionFilter === 'selected' ? marketVisible(p?.markets) : regionFilter === sec.key)
+          )
           if (secBrokers.length === 0) return null
           return (
         <div key={sec.key} className="mb-5 last:mb-0">

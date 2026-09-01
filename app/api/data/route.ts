@@ -44,6 +44,13 @@ export async function GET(req: Request) {
     }
     return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, fx_rates, market_board, news, time_series, correlation.` }, { status: 400 })
   } catch (e: any) {
+    if (e?.rateLimited) {
+      const retryAfterSec = Math.max(2, Math.min(65, e.retryAfterSec ?? 30))
+      return NextResponse.json(
+        { error: 'rate_limited', retryAfterSec, message: `Per-minute market-data budget reached (free plan). EMIL will not fake data — it retries automatically in ~${retryAfterSec}s.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } },
+      )
+    }
     console.error('data hub error', e)
     return NextResponse.json({ error: 'data_unavailable', message: `The research feed is unavailable right now (${(e?.message ?? 'network error').slice(0, 120)}). EMIL never fakes data — try again shortly.` }, { status: 502 })
   }

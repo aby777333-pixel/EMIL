@@ -2,6 +2,7 @@ import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { Toaster as HotToaster } from 'react-hot-toast'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import { Providers } from './providers'
 
@@ -33,6 +34,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark" disableTransitionOnChange>
           <Providers>{children}</Providers>
           <Toaster />
+          {/* Most feature pages notify via react-hot-toast — its Toaster was
+              never mounted, silently swallowing every success/error message. */}
+          <HotToaster
+            position="top-right"
+            toastOptions={{
+              duration: 5000,
+              style: { background: '#101826', color: '#e2e8f0', border: '1px solid #1e293b', fontSize: '13px', maxWidth: '420px' },
+              success: { iconTheme: { primary: '#34d399', secondary: '#0b1220' } },
+              error: { duration: 8000, iconTheme: { primary: '#f87171', secondary: '#0b1220' } },
+            }}
+          />
           {/* IMPORTANT: Do not remove — handles chunk loading race conditions in the dev server */}
           <ChunkLoadErrorHandler />
         </ThemeProvider>

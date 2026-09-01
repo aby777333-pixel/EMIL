@@ -8,3 +8,6 @@ next.config.user.json
 __abacus_error_reporter.js
 .DS_Store
 *.log
+
+# Local Netlify folder
+.netlify

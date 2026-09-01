@@ -123,13 +123,57 @@ async function tdKey(): Promise<string | null> {
   return provider?.enabled && provider?.apiKey ? provider.apiKey : null
 }
 
+// ---- Twelve Data credit budgeter -------------------------------------------
+// Free tier: 8 credits/minute, one per symbol. Instead of burning calls into
+// guaranteed 429s, EMIL reserves credits in a shared DB counter (atomic, so it
+// works across serverless instances) and refuses locally when the minute's
+// budget is spent — returning exactly how long to wait. Doomed upstream calls
+// are never made.
+const TD_BUDGET_PER_MINUTE = 7 // keep 1 credit spare for admin tests
+
+const secToNextMinute = () => 61 - new Date().getSeconds()
+
+function rateLimitedError(message: string): Error {
+  const e: any = new Error(message)
+  e.rateLimited = true
+  e.retryAfterSec = secToNextMinute()
+  return e
+}
+
+async function reserveTdCredits(n: number): Promise<void> {
+  const minuteKey = `td_budget_${Math.floor(Date.now() / 60000)}`
+  try {
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `INSERT INTO research_cache (id, key, payload, "fetchedAt")
+       VALUES ('bud_' || $1, $1, $2, now())
+       ON CONFLICT (key) DO UPDATE SET payload = ((research_cache.payload)::int + $3)::text
+       RETURNING payload`,
+      minuteKey, String(n), n,
+    )
+    const used = parseInt(rows?.[0]?.payload ?? '0', 10)
+    if (used > TD_BUDGET_PER_MINUTE) {
+      throw rateLimitedError(`The market-data feed reached its per-minute budget (free plan: 8 credits/min).`)
+    }
+  } catch (e: any) {
+    if (e?.rateLimited) throw e
+    // Budget table unavailable — proceed; TD's own 429 handling still applies.
+  }
+}
+
+// Convert TD's own 429/credit messages into structured rate-limit errors.
+function tdError(message: string): Error {
+  if (/run out of API credits|429/i.test(message)) return rateLimitedError('The market-data feed reached its per-minute budget (free plan: 8 credits/min).')
+  return new Error(message)
+}
+
 async function tdQuoteBatch(symbols: string[], apiKey: string) {
+  await reserveTdCredits(symbols.length)
   const res = await timeoutFetch(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols.join(','))}&apikey=${apiKey}`)
-  if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
+  if (!res.ok) throw tdError(`Twelve Data responded ${res.status}`)
   const body = await res.json()
   // A top-level {code,message} means the whole call failed (bad key, plan
   // limit, rate limit) — surface it honestly instead of an all-unavailable board.
-  if (body?.code && body?.message) throw new Error(`Twelve Data: ${String(body.message).slice(0, 200)}`)
+  if (body?.code && body?.message) throw tdError(`Twelve Data: ${String(body.message).slice(0, 200)}`)
   // Batch responses are keyed by symbol; single-symbol responses are flat.
   return (body?.symbol ? { [body.symbol]: body } : body ?? {}) as Record<string, any>
 }
@@ -201,10 +245,11 @@ export async function timeSeries(symbol: string, interval = '1day', outputsize =
   const size = Math.max(2, Math.min(500, Math.round(outputsize) || 90))
   const sym = symbol.trim().toUpperCase()
   return cachedFetch(`ts_${sym}_${iv}_${size}`, TS_TTL[iv] ?? 900, () => timed('twelve_data', async () => {
+    await reserveTdCredits(1)
     const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=${size}&apikey=${apiKey}`)
-    if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
+    if (!res.ok) throw tdError(`Twelve Data responded ${res.status}`)
     const body = await res.json()
-    if (body?.status !== 'ok' || !Array.isArray(body?.values)) throw new Error(`Twelve Data: ${String(body?.message ?? 'no data for this symbol/interval').slice(0, 200)}`)
+    if (body?.status !== 'ok' || !Array.isArray(body?.values)) throw tdError(`Twelve Data: ${String(body?.message ?? 'no data for this symbol/interval').slice(0, 200)}`)
     return {
       provider: 'twelve_data', attribution: 'Time series via Twelve Data (research data)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(),
       symbol: body?.meta?.symbol ?? sym, interval: iv, exchange: body?.meta?.exchange ?? null, currency: body?.meta?.currency ?? null,

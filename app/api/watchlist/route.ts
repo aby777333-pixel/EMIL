@@ -15,7 +15,17 @@ export async function GET() {
   const userId = (session.user as any).id as string
   try {
     const items = await prisma.watchlistItem.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } })
-    const quotes = items.length ? await watchlistQuotes(items.map((i) => i.symbol)) : null
+    let quotes: any = null
+    if (items.length) {
+      try {
+        quotes = await watchlistQuotes(items.map((i) => i.symbol))
+      } catch (e: any) {
+        // The list itself always loads; quotes degrade honestly.
+        quotes = e?.rateLimited
+          ? { rateLimited: true, retryAfterSec: e.retryAfterSec ?? 30, message: 'Per-minute market-data budget reached — quotes refresh automatically.' }
+          : { message: 'Quotes unavailable right now.' }
+      }
+    }
     return NextResponse.json({ items, quotes, cap: FREE_TIER_CAP })
   } catch (e) {
     console.error(e)

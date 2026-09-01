@@ -52,10 +52,17 @@ export default function MarketsClient() {
 
   const load = useCallback(async () => {
     setRefreshing(true)
-    const grab = async (fn: string, setter: (d: any) => void, label: string) => {
+    const grab = async (fn: string, setter: (d: any) => void, label: string, retried = false) => {
       try {
         const res = await fetch(`/api/data?fn=${fn}`, { cache: 'no-store' })
         const d = await res.json()
+        if (res.status === 429 && d?.retryAfterSec && !retried) {
+          // Per-minute budget reached — this board retries itself once.
+          const s = Math.ceil(d.retryAfterSec)
+          setErrors((prev) => ({ ...prev, [label]: `Per-minute market-data budget reached — refreshing automatically in ~${s}s…` }))
+          setTimeout(() => grab(fn, setter, label, true), (s + 1) * 1000)
+          return
+        }
         if (!res.ok) throw new Error(d?.message ?? d?.error ?? 'unavailable')
         setter(d)
         setErrors((prev) => ({ ...prev, [label]: '' }))

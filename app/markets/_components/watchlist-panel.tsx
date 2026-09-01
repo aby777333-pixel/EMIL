@@ -14,10 +14,17 @@ export default function WatchlistPanel() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (retried = false) => {
     try {
       const res = await fetch('/api/watchlist', { cache: 'no-store' })
-      if (res.ok) setData(await res.json())
+      if (res.ok) {
+        const d = await res.json()
+        setData(d)
+        // Quotes hit the per-minute budget — refresh them once automatically.
+        if (d?.quotes?.rateLimited && !retried) {
+          setTimeout(() => load(true), (Math.ceil(d.quotes.retryAfterSec ?? 30) + 1) * 1000)
+        }
+      }
     } catch { /* panel is non-critical */ }
   }, [])
   useEffect(() => { load() }, [load])

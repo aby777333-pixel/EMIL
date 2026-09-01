@@ -47,14 +47,33 @@ export default function ChartsClient() {
   const [error, setError] = useState('')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<any>(null)
+  const retryTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const load = useCallback(async (sym: string, iv: string, type: string, wantSma: boolean, wantEma: boolean) => {
     if (!containerRef.current) return
+    if (retryTimer.current) { clearInterval(retryTimer.current); retryTimer.current = null }
     setLoading(true)
     setError('')
     try {
       const res = await fetch(`/api/data?fn=time_series&symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=300`, { cache: 'no-store' })
       const d = await res.json()
+      if (res.status === 429 && d?.retryAfterSec) {
+        // Per-minute budget reached — count down and retry automatically.
+        let s = Math.ceil(d.retryAfterSec)
+        setLoading(false)
+        setError(`Per-minute market-data budget reached — loading automatically in ${s}s…`)
+        retryTimer.current = setInterval(() => {
+          s -= 1
+          if (s <= 0) {
+            if (retryTimer.current) clearInterval(retryTimer.current)
+            retryTimer.current = null
+            load(sym, iv, type, wantSma, wantEma)
+          } else {
+            setError(`Per-minute market-data budget reached — loading automatically in ${s}s…`)
+          }
+        }, 1000)
+        return
+      }
       if (!res.ok) throw new Error(d?.message ?? d?.error ?? 'Feed unavailable')
       if (d?.needsKey) throw new Error(d.message)
       if (!Array.isArray(d?.data) || d.data.length === 0) throw new Error('No data returned for this symbol/interval.')
@@ -121,7 +140,12 @@ export default function ChartsClient() {
     load(symbol, interval, chartType, showSma, showEma)
     const onResize = () => chartRef.current?.applyOptions?.({ width: containerRef.current?.clientWidth ?? 600 })
     window.addEventListener('resize', onResize)
-    return () => { window.removeEventListener('resize', onResize); chartRef.current?.remove?.(); chartRef.current = null }
+    return () => {
+      window.removeEventListener('resize', onResize)
+      chartRef.current?.remove?.()
+      chartRef.current = null
+      if (retryTimer.current) { clearInterval(retryTimer.current); retryTimer.current = null }
+    }
   }, [symbol, interval, chartType, showSma, showEma, load])
 
   return (

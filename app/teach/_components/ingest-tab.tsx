@@ -12,7 +12,14 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState('')
   const [lastResult, setLastResult] = useState<any>(null)
+  // Inline session log — every outcome is visible on the page, never only a toast.
+  const [sessionLog, setSessionLog] = useState<{ url: string; status: 'queued' | 'analyzing' | 'done' | 'failed' | 'rejected'; detail?: string }[]>([])
   const fileInput = useRef<HTMLInputElement | null>(null)
+  const logSet = (url: string, status: 'queued' | 'analyzing' | 'done' | 'failed' | 'rejected', detail?: string) =>
+    setSessionLog((prev) => {
+      const next = prev.filter((e) => e.url !== url)
+      return [...next, { url, status, detail }]
+    })
 
   // paste form (manual knowledge, legacy pipeline)
   const [title, setTitle] = useState('')
@@ -22,10 +29,11 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
 
   const analyzeAndTeach = useCallback(async () => {
     const list = urls.split(/\n+/).map((u) => u.trim()).filter(Boolean)
-    if (list.length === 0) { toast.error('Paste at least one URL.'); return }
+    if (list.length === 0) { toast.error('Paste at least one URL.'); setProgress('Paste at least one URL first.'); return }
     if (busy) return
     setBusy(true)
     setLastResult(null)
+    setSessionLog([])
     try {
       setProgress(`Submitting ${list.length} URL(s) to the research queue...`)
       const res = await fetch('/api/teach/sources', {
@@ -33,25 +41,35 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ urls: list }),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d?.error ?? 'submit failed')
-      for (const r of d?.rejected ?? []) toast.error(`${r.url}: ${r.reason}`, { duration: 5000 })
+      const d = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(d?.error ?? `Submission failed (HTTP ${res.status}).`)
+      for (const r of d?.rejected ?? []) {
+        logSet(r.url, 'rejected', r.reason)
+        toast.error(`${r.url}: ${r.reason}`, { duration: 5000 })
+      }
       const created = d?.created ?? []
-      if (created.length === 0) { setProgress(''); setBusy(false); return }
+      for (const src of created) logSet(src.url, 'queued')
+      if (created.length === 0) {
+        setProgress('Nothing new to analyze — see the reasons below (already-known URLs are re-analyzable from the Source Library tab).')
+        setBusy(false)
+        return
+      }
 
       let done = 0
       const totals = { claims: 0, concepts: 0, strategies: 0, contradictions: 0, hypotheses: 0 }
       for (const src of created) {
         done++
         setProgress(`Knowledge Council analyzing ${done}/${created.length}: ${src.url}`)
+        logSet(src.url, 'analyzing')
         try {
           const ir = await fetch('/api/teach/ingest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sourceId: src.id }),
           })
-          const idata = await ir.json()
+          const idata = await ir.json().catch(() => null)
           if (!ir.ok) {
+            logSet(src.url, 'failed', idata?.error ?? `HTTP ${ir.status}`)
             toast.error(`${src.url}: ${idata?.error ?? 'analysis failed'}`, { duration: 6000 })
             continue
           }
@@ -61,19 +79,22 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
           totals.strategies += p.strategies ?? 0
           totals.contradictions += p.contradictions ?? 0
           totals.hypotheses += p.hypotheses ?? 0
+          logSet(src.url, 'done', `${p.claims ?? 0} claims · ${p.concepts ?? 0} new concepts · ${p.strategies ?? 0} strategies · ${p.contradictions ?? 0} contradictions`)
           setLastResult({ url: src.url, extraction: idata?.extraction, persisted: p })
-        } catch {
+        } catch (e: any) {
+          logSet(src.url, 'failed', e?.message ?? 'network error')
           toast.error(`${src.url}: analysis failed.`)
         }
       }
+      setProgress(`Learning session complete — ${totals.claims} claims, ${totals.concepts} new concepts, ${totals.strategies} strategies, ${totals.contradictions} contradictions, ${totals.hypotheses} hypotheses stored (all as UNTESTED hypotheses).`)
       toast.success(`Learning session complete — ${totals.claims} claims, ${totals.concepts} new concepts, ${totals.strategies} strategies, ${totals.contradictions} contradictions, ${totals.hypotheses} hypotheses. Everything starts as an UNTESTED hypothesis.`, { duration: 8000 })
       setUrls('')
       onChanged()
     } catch (e: any) {
+      setProgress(`Submission failed: ${e?.message ?? 'unknown error'}`)
       toast.error(e?.message ?? 'Failed to submit URLs.')
     } finally {
       setBusy(false)
-      setProgress('')
     }
   }, [urls, busy, onChanged])
 
@@ -154,8 +175,27 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
           >
             <Sparkles className="h-4 w-4" /> {busy ? 'ANALYZING...' : 'ANALYZE & TEACH EMIL'}
           </button>
-          {progress ? <span className="text-[11px] text-cyan-300 animate-pulse">{progress}</span> : null}
+          {progress ? <span className={`text-[11px] ${busy ? 'text-cyan-300 animate-pulse' : 'text-slate-300'}`}>{progress}</span> : null}
         </div>
+        {sessionLog.length > 0 ? (
+          <div className="mt-3 rounded-md border border-border bg-background/40 p-3 space-y-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">This session</p>
+            {sessionLog.map((e) => (
+              <div key={e.url} className="flex items-start gap-2 text-[11px]">
+                <span className={`shrink-0 mt-0.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${
+                  e.status === 'done' ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
+                  : e.status === 'analyzing' ? 'text-violet-300 border-violet-500/40 bg-violet-500/10 animate-pulse'
+                  : e.status === 'queued' ? 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10'
+                  : 'text-red-300 border-red-500/40 bg-red-500/10'
+                }`}>{e.status}</span>
+                <div className="min-w-0">
+                  <p className="text-slate-300 truncate">{e.url}</p>
+                  {e.detail ? <p className="text-[10px] text-slate-500">{e.detail}</p> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-3 rounded-md border border-border bg-background/40 p-3 flex gap-2">
           <Info className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-slate-400 leading-snug">

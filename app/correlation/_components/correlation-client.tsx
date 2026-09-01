@@ -36,13 +36,31 @@ export default function CorrelationClient() {
   const [error, setError] = useState('')
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<any>(null)
+  const retryTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const run = useCallback(async (symA: string, symB: string, nBars: number) => {
+    if (retryTimer.current) { clearInterval(retryTimer.current); retryTimer.current = null }
     setLoading(true)
     setError('')
     try {
       const res = await fetch(`/api/data?fn=correlation&a=${encodeURIComponent(symA)}&b=${encodeURIComponent(symB)}&bars=${nBars}`, { cache: 'no-store' })
       const d = await res.json()
+      if (res.status === 429 && d?.retryAfterSec) {
+        let s = Math.ceil(d.retryAfterSec)
+        setLoading(false)
+        setError(`Per-minute market-data budget reached — calculating automatically in ${s}s…`)
+        retryTimer.current = setInterval(() => {
+          s -= 1
+          if (s <= 0) {
+            if (retryTimer.current) clearInterval(retryTimer.current)
+            retryTimer.current = null
+            run(symA, symB, nBars)
+          } else {
+            setError(`Per-minute market-data budget reached — calculating automatically in ${s}s…`)
+          }
+        }, 1000)
+        return
+      }
       if (!res.ok) throw new Error(d?.message ?? d?.error ?? 'Correlation unavailable')
       if (d?.needsKey) throw new Error(d.message)
       setResult(d)
@@ -75,7 +93,11 @@ export default function CorrelationClient() {
 
   useEffect(() => {
     run(a, b, bars)
-    return () => { chartRef.current?.remove?.(); chartRef.current = null }
+    return () => {
+      chartRef.current?.remove?.()
+      chartRef.current = null
+      if (retryTimer.current) { clearInterval(retryTimer.current); retryTimer.current = null }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
