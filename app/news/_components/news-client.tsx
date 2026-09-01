@@ -56,7 +56,7 @@ export default function NewsClient() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-bold text-white flex items-center gap-2"><Newspaper className="h-5 w-5 text-cyan-400" /> EMIL News — Global Intelligence</h1>
-          <p className="text-xs text-slate-500 mt-1">Global financial headlines indexed via the open GDELT Project (updates ~every 15 minutes). Every headline links to the original publisher.</p>
+          <p className="text-xs text-slate-500 mt-1">Global financial headlines from open news indexes (GDELT primary, Google News RSS fallback). Every headline links to the original publisher.</p>
         </div>
         <button onClick={() => load(category)} className="flex items-center gap-1.5 rounded-md bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 text-xs px-3 py-2 transition-colors">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh

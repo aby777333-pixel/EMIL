@@ -46,7 +46,8 @@ export const DATA_PROVIDERS: DataProviderDef[] = [
   { key: 'coingecko', name: 'CoinGecko', category: 'crypto', baseUrl: 'https://api.coingecko.com/api/v3', docsUrl: 'https://docs.coingecko.com/', authType: 'none', priority: 10, license: 'Free public API (rate-limited); attribution required.', freshness: 'realtime', coverage: 'Crypto prices, market caps, volumes, metadata' },
 
   // ---- News / events ----
-  { key: 'gdelt', name: 'GDELT DOC 2.0', category: 'news', baseUrl: 'https://api.gdeltproject.org/api/v2', docsUrl: 'https://www.gdeltproject.org/', authType: 'none', priority: 10, license: 'Open; attribution to GDELT required.', freshness: 'realtime', coverage: 'Global news index, events, geopolitics (15-min updates)' },
+  { key: 'gdelt', name: 'GDELT DOC 2.0', category: 'news', baseUrl: 'https://api.gdeltproject.org/api/v2', docsUrl: 'https://www.gdeltproject.org/', authType: 'none', priority: 10, fallbackKey: 'google_news_rss', license: 'Open; attribution to GDELT required.', freshness: 'realtime', coverage: 'Global news index, events, geopolitics (15-min updates)' },
+  { key: 'google_news_rss', name: 'Google News RSS', category: 'news', baseUrl: 'https://news.google.com/rss', docsUrl: 'https://news.google.com/', authType: 'none', priority: 20, license: 'Public RSS feeds; links open original publishers — index only, never republish content.', freshness: 'realtime', coverage: 'Global news headlines by query (fallback for GDELT)' },
 
   // ---- Energy / agriculture / trade / weather ----
   { key: 'eia', name: 'US EIA Open Data', category: 'energy', baseUrl: 'https://api.eia.gov/v2', docsUrl: 'https://www.eia.gov/opendata/', authType: 'api_key', priority: 10, license: 'Free key; US government open data.', freshness: 'varies', coverage: 'Oil, gas, inventories, production, electricity' },
