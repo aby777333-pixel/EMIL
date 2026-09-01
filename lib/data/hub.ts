@@ -103,6 +103,9 @@ export async function marketBoard() {
     const res = await timeoutFetch(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols)}&apikey=${provider.apiKey}`)
     if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
     const body = await res.json()
+    // A top-level {code,message} means the whole call failed (bad key, plan
+    // limit, rate limit) — surface it honestly instead of an all-unavailable board.
+    if (body?.code && body?.message) throw new Error(`Twelve Data: ${String(body.message).slice(0, 200)}`)
     // Batch responses are keyed by symbol; single-symbol responses are flat.
     const bySymbol: Record<string, any> = body?.symbol ? { [body.symbol]: body } : body ?? {}
     const data = MARKET_BOARD.map((b) => {
@@ -117,6 +120,29 @@ export async function marketBoard() {
       }
     })
     return { provider: 'twelve_data', attribution: 'Research quotes via Twelve Data (delayed; plan-dependent coverage)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data }
+  })
+}
+
+// ---- Time series — Twelve Data (charting groundwork) ----
+const TS_INTERVALS = ['1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week', '1month']
+
+export async function timeSeries(symbol: string, interval = '1day', outputsize = 90) {
+  const provider = await prisma.dataProvider.findUnique({ where: { key: 'twelve_data' } })
+  if (!provider?.enabled || !provider?.apiKey) {
+    return { provider: 'twelve_data', needsKey: true, message: 'Add a free Twelve Data API key in Command Center → Data Providers to enable time series.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
+  }
+  const iv = TS_INTERVALS.includes(interval) ? interval : '1day'
+  const size = Math.max(2, Math.min(500, Math.round(outputsize) || 90))
+  return timed('twelve_data', async () => {
+    const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${iv}&outputsize=${size}&apikey=${provider.apiKey}`)
+    if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
+    const body = await res.json()
+    if (body?.status !== 'ok' || !Array.isArray(body?.values)) throw new Error(`Twelve Data: ${String(body?.message ?? 'no data for this symbol/interval').slice(0, 200)}`)
+    return {
+      provider: 'twelve_data', attribution: 'Time series via Twelve Data (research data)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(),
+      symbol: body?.meta?.symbol ?? symbol, interval: iv, exchange: body?.meta?.exchange ?? null, currency: body?.meta?.currency ?? null,
+      data: body.values.map((v: any) => ({ time: v.datetime, open: +v.open, high: +v.high, low: +v.low, close: +v.close, volume: v.volume ? +v.volume : null })).reverse(),
+    }
   })
 }
 

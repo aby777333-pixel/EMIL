@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { cryptoMarkets, fxRates, marketBoard, newsFeed } from '@/lib/data/hub'
+import { cryptoMarkets, fxRates, marketBoard, newsFeed, timeSeries } from '@/lib/data/hub'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +28,14 @@ export async function GET(req: Request) {
       const category = url.searchParams.get('category') ?? 'markets'
       return NextResponse.json({ ok: true, ...(await newsFeed(category, 30)) })
     }
-    return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, fx_rates, market_board, news.` }, { status: 400 })
+    if (fn === 'time_series') {
+      const symbol = (url.searchParams.get('symbol') ?? '').slice(0, 20)
+      if (!symbol) return NextResponse.json({ error: 'symbol parameter required' }, { status: 400 })
+      const interval = url.searchParams.get('interval') ?? '1day'
+      const outputsize = parseInt(url.searchParams.get('outputsize') ?? '90', 10)
+      return NextResponse.json({ ok: true, ...(await timeSeries(symbol, interval, outputsize)) })
+    }
+    return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, fx_rates, market_board, news, time_series.` }, { status: 400 })
   } catch (e: any) {
     console.error('data hub error', e)
     return NextResponse.json({ error: 'data_unavailable', message: `The research feed is unavailable right now (${(e?.message ?? 'network error').slice(0, 120)}). EMIL never fakes data — try again shortly.` }, { status: 502 })
