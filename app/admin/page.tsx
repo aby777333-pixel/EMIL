@@ -1,12 +1,8 @@
-import { CockpitShell } from '@/components/cockpit/shell'
-import AdminClient from './_components/admin-client'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
+// The Super Admin console moved into the dedicated Command Center.
 export default function AdminPage() {
-  return (
-    <CockpitShell>
-      <AdminClient />
-    </CockpitShell>
-  )
+  redirect('/command/research')
 }

@@ -23,6 +23,15 @@ export async function POST(req: Request) {
     const hashed = await bcrypt.hash(password, 10)
     const user = await prisma.user.create({ data: { email, password: hashed, name } })
 
+    // Every signup becomes a CRM customer on a 14-day trial.
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    await prisma.customerProfile.create({
+      data: { userId: user.id, status: 'trial', planKey: 'trial', trialEndsAt },
+    }).catch(() => {})
+    await prisma.auditLog.create({
+      data: { userId: user.id, actor: 'system', action: 'CUSTOMER SIGNUP', category: 'crm', detail: `New customer ${email} signed up — 14-day trial started (ends ${trialEndsAt.toISOString().slice(0, 10)}).` },
+    }).catch(() => {})
+
     // Provision a demo trading account for the new user
     const broker = await prisma.broker.findFirst()
     if (broker) {

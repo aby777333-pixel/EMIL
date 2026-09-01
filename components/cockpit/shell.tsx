@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOut } from 'next-auth/react'
-import { Menu, X, LogOut, OctagonX, AlertOctagon, Activity, Radio, Newspaper, Wifi, WifiOff } from 'lucide-react'
+import { signOut, useSession } from 'next-auth/react'
+import { Menu, X, LogOut, OctagonX, AlertOctagon, Activity, Radio, Newspaper, Wifi, WifiOff, Crown } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
 import { MODE_LABELS, volColor } from '@/lib/format'
 import { toast } from 'sonner'
@@ -27,10 +27,29 @@ interface EmilStateLite {
 
 export function CockpitShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { data: sessionData } = useSession()
+  const isAdmin = (sessionData?.user as any)?.role === 'admin'
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<EmilStateLite>({})
   const [confirmAction, setConfirmAction] = useState<null | 'close_all' | 'emergency_stop'>(null)
   const [busy, setBusy] = useState(false)
+  // The shell remounts on every page navigation, so the sidebar's scroll
+  // position is preserved across mounts (report: sidebar jumped to top after
+  // clicking a nav item reached by scrolling).
+  const navRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    const el = navRef.current
+    if (!el) return
+    try {
+      const saved = sessionStorage.getItem('emil-sidebar-scroll')
+      if (saved) el.scrollTop = parseInt(saved, 10) || 0
+    } catch { /* storage unavailable */ }
+    const onScroll = () => {
+      try { sessionStorage.setItem('emil-sidebar-scroll', String(el.scrollTop)) } catch { /* ignore */ }
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -93,7 +112,7 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
           </div>
         </Link>
       </div>
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
+      <nav ref={navRef} className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
         {NAV_ITEMS?.map((item) => {
           const Icon = item?.icon
           const active = pathname === item?.href
@@ -113,6 +132,15 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
         })}
       </nav>
       <div className="p-3 space-y-2 border-t border-border">
+        {isAdmin ? (
+          <Link
+            href="/command"
+            onClick={() => setOpen(false)}
+            className="w-full flex items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition-colors"
+          >
+            <Crown className="h-4 w-4" /> COMMAND CENTER
+          </Link>
+        ) : null}
         <button
           onClick={() => setConfirmAction('close_all')}
           className="w-full flex items-center justify-center gap-2 rounded-md bg-red-950/60 border border-red-500/40 px-3 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-900/60 transition-colors danger-glow"

@@ -35,11 +35,18 @@ export async function GET(req: Request) {
       return new Response(UPSTOX_MARKET_FEED_PROTO, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
     }
 
-    const provider = await prisma.indiaApiProvider.findUnique({ where: { key: 'upstox' } })
-    if (!provider?.accessToken) {
+    // The signed-in customer's own Upstox link wins; the house token on the
+    // catalog row is the owner's fallback.
+    const userId = (session.user as any).id as string
+    const [provider, userLink] = await Promise.all([
+      prisma.indiaApiProvider.findUnique({ where: { key: 'upstox' } }),
+      prisma.userBrokerConnection.findUnique({ where: { userId_providerKey: { userId, providerKey: 'upstox' } } }).catch(() => null),
+    ])
+    const accessToken = userLink?.accessToken ?? provider?.accessToken
+    if (!accessToken || !provider) {
       return NextResponse.json({ error: 'not_configured', message: 'Add your Upstox daily access token in the Markets & API Hub first (tokens expire 03:30 IST).' }, { status: 409 })
     }
-    const headers = { Authorization: `Bearer ${provider.accessToken}`, Accept: 'application/json' }
+    const headers = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
 
     if (fn === 'feed_authorize') {
       // v3 authorize endpoint, with v2 fallback for older app scopes.
@@ -50,7 +57,9 @@ export async function GET(req: Request) {
           return NextResponse.json({ ok: true, wssUrl: body.data.authorized_redirect_uri, via: endpoint.includes('/v3/') ? 'v3' : 'v2' })
         }
         if (res.status === 401) {
-          await prisma.indiaApiProvider.update({ where: { id: provider.id }, data: { status: 'error', lastError: 'Upstox token rejected (401) — tokens expire daily at 03:30 IST.' } })
+          const errData = { status: 'error', lastError: 'Upstox token rejected (401) — tokens expire daily at 03:30 IST.' }
+          if (userLink?.accessToken) await prisma.userBrokerConnection.update({ where: { id: userLink.id }, data: errData }).catch(() => {})
+          else await prisma.indiaApiProvider.update({ where: { id: provider.id }, data: errData }).catch(() => {})
           return NextResponse.json({ error: 'token_expired', message: 'Upstox rejected the access token (401). Generate a fresh daily token and save it in the API Hub.' }, { status: 401 })
         }
       }

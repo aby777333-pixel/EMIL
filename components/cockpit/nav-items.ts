@@ -1,9 +1,11 @@
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
   Landmark, FlaskConical, GraduationCap, BrainCircuit, Settings, Plug,
-  Microscope, ShieldAlert,
+  Microscope,
 } from 'lucide-react'
 
+// Customer-facing navigation only. The backend command center lives at
+// /command with its own shell — admins reach it via the shell's admin link.
 export const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
@@ -17,5 +19,4 @@ export const NAV_ITEMS = [
   { href: '/teach', label: 'Teach EMIL', icon: GraduationCap },
   { href: '/trust', label: 'Trust & Metacognition', icon: BrainCircuit },
   { href: '/settings', label: 'Settings & Permissions', icon: Settings },
-  { href: '/admin', label: 'Super Admin', icon: ShieldAlert },
 ]

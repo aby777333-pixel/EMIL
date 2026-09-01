@@ -29,7 +29,7 @@ export default function SettingsClient() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/settings')
+      const res = await fetch('/api/settings', { cache: 'no-store' })
       if (!res?.ok) throw new Error('failed')
       const d = await res.json()
       setData(d)
@@ -54,6 +54,11 @@ export default function SettingsClient() {
         body: JSON.stringify({ type: 'toggle_permission', key }),
       })
       if (!res?.ok) throw new Error('failed')
+      // Flip the switch immediately — no page refresh required.
+      setData((prev: any) => ({
+        ...prev,
+        permissions: (prev?.permissions ?? []).map((p: any) => (p?.key === key ? { ...p, granted: !p?.granted } : p)),
+      }))
       toast.success('Permission updated and logged.')
       await load()
     } catch {

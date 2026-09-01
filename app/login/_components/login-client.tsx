@@ -38,7 +38,9 @@ export function LoginClient() {
       }
       const result = await signIn('credentials', { email, password, redirect: false })
       if (result?.error) {
-        toast.error('Invalid email or password.')
+        // Surface real account-state messages (e.g. suspension); generic
+        // CredentialsSignin stays "invalid email or password".
+        toast.error(result.error !== 'CredentialsSignin' && /suspend|support/i.test(result.error) ? result.error : 'Invalid email or password.')
         setBusy(false)
         return
       }

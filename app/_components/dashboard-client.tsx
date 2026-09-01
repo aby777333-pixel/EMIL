@@ -115,9 +115,10 @@ export function DashboardClient() {
         <Panel title="Capital Architecture" icon={Wallet} accent="emerald">
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <Stat label="Protected" value={fmtMoney(acc?.protectedCapital)} valueClass="text-emerald-400" />
-              <Stat label="Profit" value={fmtMoney(acc?.profitCapital)} valueClass="text-cyan-300" />
-              <Stat label="Working" value={fmtMoney(acc?.workingCapital)} valueClass="text-amber-300" />
+              {/* Whole-dollar display keeps the three values inside their boxes at every card width */}
+              <Stat size="sm" label="Protected" value={`$${Math.round(acc?.protectedCapital ?? 0).toLocaleString()}`} valueClass="text-emerald-400" />
+              <Stat size="sm" label="Profit" value={`$${Math.round(acc?.profitCapital ?? 0).toLocaleString()}`} valueClass="text-cyan-300" />
+              <Stat size="sm" label="Working" value={`$${Math.round(acc?.workingCapital ?? 0).toLocaleString()}`} valueClass="text-amber-300" />
             </div>
             <div className="h-3 rounded-full overflow-hidden flex bg-secondary">
               <div className="bg-emerald-500/80" style={{ width: `${((acc?.protectedCapital ?? 0) / ((acc?.equity ?? 1))) * 100}%` }} />
@@ -134,9 +135,9 @@ export function DashboardClient() {
         <Panel title="Exposure & Lot Discipline" icon={Layers} accent="cyan">
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-2">
-              <Stat label="Base Lot" value={fmtNum(profile?.baseLot ?? 0.01, 2)} />
-              <Stat label="Max Exposure" value={`${fmtNum(maxExp, 2)} lots`} valueClass="text-cyan-300" />
-              <Stat label="Remaining" value={`${fmtNum(remaining, 2)} lots`} valueClass={remaining <= 0.01 ? 'text-amber-400' : 'text-emerald-400'} />
+              <Stat size="sm" label="Base Lot" value={fmtNum(profile?.baseLot ?? 0.01, 2)} />
+              <Stat size="sm" label="Max Exposure" value={`${fmtNum(maxExp, 2)} lots`} valueClass="text-cyan-300" />
+              <Stat size="sm" label="Remaining" value={`${fmtNum(remaining, 2)} lots`} valueClass={remaining <= 0.01 ? 'text-amber-400' : 'text-emerald-400'} />
             </div>
             <Meter label="Current aggregate exposure" value={openLots} max={maxExp} unit=" lots" danger={85} warn={60} />
             <Meter label="Margin utilization" value={Math.round(((acc?.marginUsed ?? 0) / (acc?.equity || 1)) * 1000) / 10} max={profile?.maxMarginUtilPct ?? 25} unit="%" danger={80} warn={55} />
@@ -153,8 +154,8 @@ export function DashboardClient() {
             <Meter label={`Daily loss budget (${fmtPct(profile?.dailyLossLimitPct ?? 2, 1)} = ${fmtMoney(dailyBudget)})`} value={Math.round(riskUsed * 100) / 100} max={Math.round(dailyBudget * 100) / 100} unit="$" danger={75} warn={50} />
             <Meter label={`Drawdown from HWM (max ${fmtPct(profile?.maxDrawdownPct ?? 8, 0)})`} value={Math.round(ddFromHwm * 100) / 100} max={profile?.maxDrawdownPct ?? 8} unit="%" danger={75} warn={50} />
             <div className="grid grid-cols-2 gap-2">
-              <Stat label="Risk used today" value={fmtMoney(riskUsed)} valueClass={riskUsed > 0 ? 'text-amber-400' : 'text-emerald-400'} />
-              <Stat label="Risk remaining" value={fmtMoney(Math.max(0, dailyBudget - riskUsed))} valueClass="text-emerald-400" />
+              <Stat size="sm" label="Risk used today" value={fmtMoney(riskUsed)} valueClass={riskUsed > 0 ? 'text-amber-400' : 'text-emerald-400'} />
+              <Stat size="sm" label="Risk remaining" value={fmtMoney(Math.max(0, dailyBudget - riskUsed))} valueClass="text-emerald-400" />
             </div>
             <div className="text-[11px] text-slate-500">Per-trade limit {fmtPct(profile?.maxRiskPerTradePct ?? 0.5, 2)} · ceiling {fmtPct(profile?.riskCeilingPct ?? 5, 0)} (absolute, never a target)</div>
           </div>
@@ -258,11 +259,11 @@ export function DashboardClient() {
         <Panel title="Market Regimes" icon={Globe2} accent="emerald">
           <div className="space-y-1.5 max-h-72 overflow-y-auto scrollbar-thin pr-1">
             {(data?.regimes ?? []).map((r: any) => (
-              <div key={r?.id} className="flex items-center justify-between rounded-md bg-secondary/40 px-3 py-1.5 text-xs">
-                <span className="num font-semibold text-white">{r?.symbol} <span className="text-slate-500">{r?.timeframe}</span></span>
-                <span className="text-slate-300">{r?.regime?.replace(/_/g, ' ')}</span>
-                <span className={`rounded border px-1.5 py-0.5 text-[10px] ${volColor(r?.volatilityClass)}`}>{r?.volatilityClass}</span>
-                <span className="num text-slate-500">{fmtNum(r?.confidence, 0)}%</span>
+              <div key={r?.id} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_4.5rem_2.6rem] items-center gap-2 rounded-md bg-secondary/40 px-3 py-1.5 text-xs">
+                <span className="num font-semibold text-white truncate">{r?.symbol} <span className="text-slate-500">{r?.timeframe}</span></span>
+                <span className="text-slate-300 truncate">{r?.regime?.replace(/_/g, ' ')}</span>
+                <span className={`rounded border px-1.5 py-0.5 text-[10px] text-center ${volColor(r?.volatilityClass)}`}>{r?.volatilityClass}</span>
+                <span className="num text-slate-500 text-right">{fmtNum(r?.confidence, 0)}%</span>
               </div>
             ))}
           </div>

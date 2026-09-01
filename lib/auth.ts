@@ -17,10 +17,15 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } })
+        const user = await prisma.user.findUnique({ where: { email: credentials.email }, include: { profile: true } })
         if (!user?.password) return null
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
+        // Suspended/churned customers cannot sign in (Command Center CRM control).
+        if (user.role !== 'admin' && (user.profile?.status === 'suspended' || user.profile?.status === 'churned')) {
+          throw new Error('Your EMIL account is suspended. Contact support to restore access.')
+        }
+        prisma.customerProfile.update({ where: { userId: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {})
         return { id: user.id, email: user.email, name: user.name ?? '', role: user.role } as any
       },
     }),

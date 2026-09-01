@@ -24,8 +24,96 @@ model User {
   riskOverrides RiskOverride[]
   knowledgeItems KnowledgeItem[]
   selectedMarkets String? // comma list of Market.key; null/empty = all markets
+  profile       CustomerProfile?
+  apiKeys       ApiKey[]
+  brokerLinks   UserBrokerConnection[]
 
   @@map("users")
+}
+
+// ============ COMMAND CENTER — CRM & B2B PLATFORM ============
+// EMIL is sold to customers online; each customer connects their own broker
+// APIs and can integrate programmatically through EMIL API keys.
+
+model CustomerProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String    @default("trial") // lead | trial | active | suspended | churned
+  planKey     String    @default("trial")
+  company     String?
+  phone       String?
+  country     String?
+  tags        String?   // comma list
+  mrr         Float     @default(0) // manual/derived monthly recurring revenue
+  trialEndsAt DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  notes       CrmNote[]
+
+  @@map("customer_profiles")
+}
+
+model CrmNote {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  authorEmail String
+  note        String
+  createdAt   DateTime @default(now())
+
+  @@map("crm_notes")
+}
+
+model BillingPlan {
+  id           String  @id @default(cuid())
+  key          String  @unique // trial | starter | pro | institutional
+  name         String
+  priceMonthly Float   @default(0)
+  currency     String  @default("USD")
+  features     String? // JSON array
+  active       Boolean @default(true)
+  sortOrder    Int     @default(100)
+
+  @@map("billing_plans")
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String
+  prefix     String    // first characters shown in UIs; full key never stored
+  keyHash    String    @unique // sha256 of the full key
+  status     String    @default("active") // active | revoked
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@map("api_keys")
+}
+
+// Per-customer broker/data-provider credentials. The rows in
+// india_api_providers stay the catalog + the house/owner credentials; every
+// non-admin customer links their own accounts here.
+model UserBrokerConnection {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerKey   String    // india_api_providers.key
+  apiKey        String?
+  apiSecret     String?
+  accessToken   String?
+  clientCode    String?
+  status        String    @default("configured") // configured | connected | error
+  lastCheckedAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([userId, providerKey])
+  @@map("user_broker_connections")
 }
 
 // ============ GLOBAL MARKETS ============

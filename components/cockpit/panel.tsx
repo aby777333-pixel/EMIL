@@ -33,17 +33,18 @@ export function Panel({ title, icon: Icon, children, className = '', accent = 'c
   )
 }
 
-export function Stat({ label, value, sub, valueClass = 'text-white' }: {
+export function Stat({ label, value, sub, valueClass = 'text-white', size = 'md' }: {
   label: string
   value: React.ReactNode
   sub?: React.ReactNode
   valueClass?: string
+  size?: 'sm' | 'md'
 }) {
   return (
-    <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2.5">
+    <div className="rounded-md bg-secondary/50 border border-border/60 px-3 py-2.5 min-w-0">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`num text-lg font-semibold leading-tight mt-0.5 ${valueClass}`}>{value}</div>
-      {sub ? <div className="text-[11px] text-slate-500 mt-0.5">{sub}</div> : null}
+      <div className={`num ${size === 'sm' ? 'text-sm' : 'text-lg'} font-semibold leading-tight mt-0.5 min-w-0 [overflow-wrap:anywhere] ${valueClass}`}>{value}</div>
+      {sub ? <div className="text-[11px] text-slate-500 mt-0.5 [overflow-wrap:anywhere]">{sub}</div> : null}
     </div>
   )
 }

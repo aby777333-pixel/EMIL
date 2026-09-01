@@ -68,9 +68,17 @@ export default function LiveFeedPanel() {
         decoderRef.current = root.lookupType('com.upstox.marketdatafeederv3udapi.rpc.proto.FeedResponse')
       }
       // 2. Server exchanges the stored token for a pre-authorized wss URL.
-      const authRes = await fetch('/api/india/upstox?fn=feed_authorize')
-      const auth = await authRes.json()
-      if (!authRes.ok || !auth?.wssUrl) throw new Error(auth?.message ?? 'Feed authorization failed.')
+      const authRes = await fetch('/api/india/upstox?fn=feed_authorize', { cache: 'no-store' })
+      const rawAuth = await authRes.text()
+      let auth: any = null
+      try {
+        auth = JSON.parse(rawAuth)
+      } catch {
+        // Raw backend/proxy output must never reach the user — log it, show a clear message.
+        console.error('Upstox feed authorize returned a non-JSON response:', rawAuth.slice(0, 500))
+        throw new Error('The live feed could not be authorized right now — the server returned an unexpected response. Check that your Upstox daily token is saved below, then try again.')
+      }
+      if (!authRes.ok || !auth?.wssUrl) throw new Error(auth?.message ?? 'Feed authorization failed — save a valid Upstox daily access token in the Broker APIs section below.')
 
       setStatusMsg(`Connecting to Upstox feed (${auth.via})...`)
       const ws = new WebSocket(auth.wssUrl)
@@ -127,9 +135,16 @@ export default function LiveFeedPanel() {
     setRestBusy(true)
     try {
       const instrumentKeys = keys.split(',').map((k) => k.trim()).filter(Boolean).slice(0, 50)
-      const res = await fetch(`/api/india/upstox?fn=ltp&keys=${encodeURIComponent(instrumentKeys.join(','))}`)
-      const d = await res.json()
-      if (!res.ok) throw new Error(d?.message ?? d?.error ?? 'Snapshot failed')
+      const res = await fetch(`/api/india/upstox?fn=ltp&keys=${encodeURIComponent(instrumentKeys.join(','))}`, { cache: 'no-store' })
+      const raw = await res.text()
+      let d: any = null
+      try {
+        d = JSON.parse(raw)
+      } catch {
+        console.error('Upstox LTP returned a non-JSON response:', raw.slice(0, 500))
+        throw new Error('The snapshot request failed with an unexpected server response. Please try again.')
+      }
+      if (!res.ok) throw new Error(d?.message ?? (d?.error === 'not_configured' ? 'Save your Upstox daily access token in the Broker APIs section below first.' : 'Snapshot failed'))
       const next: Record<string, Tick> = {}
       for (const [k, v] of Object.entries<any>(d?.data ?? {})) {
         next[v?.instrument_token ?? k] = { ltp: v?.last_price, cp: undefined, dir: '' }

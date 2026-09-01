@@ -123,7 +123,7 @@ export const INDIA_PROVIDERS: IndiaProviderDef[] = [
     key: 'icici_breeze',
     name: 'Breeze API',
     vendor: 'ICICI Direct',
-    docsUrl: 'https://api.icicidirect.com/apidocs',
+    docsUrl: 'https://api.icicidirect.com/breezeapi/documents/index.html',
     baseUrl: 'https://api.icicidirect.com/breezeapi/api/v1',
     authType: 'api_key_secret_daily_token',
     authNote:
@@ -193,7 +193,7 @@ export const INDIA_PROVIDERS: IndiaProviderDef[] = [
     key: 'motilal_oswal',
     name: 'MO Open API',
     vendor: 'Motilal Oswal',
-    docsUrl: 'https://invest.motilaloswal.com/OpenAPI/Info.aspx',
+    docsUrl: 'https://invest.motilaloswal.com/moAPI/APIDocumentation/Introduction',
     baseUrl: 'https://openapi.motilaloswal.com/rest',
     authType: 'totp_login',
     authNote:
