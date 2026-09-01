@@ -94,6 +94,35 @@ model ApiKey {
   @@map("api_keys")
 }
 
+// Modular global data-provider layer (EMIL Universe §230/§276): official APIs,
+// public datasets and legitimate free tiers — never scraping. Every provider
+// carries license notes, freshness, priority and a fallback so sources can be
+// swapped without rebuilding EMIL. Research data, never execution data.
+model DataProvider {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  name          String
+  category      String    // macro | market_data | fundamentals | fx | crypto | news | energy | agriculture | trade | weather | identifiers | regulatory
+  baseUrl       String
+  docsUrl       String
+  authType      String    @default("none") // none | api_key
+  apiKey        String?
+  enabled       Boolean   @default(true)
+  priority      Int       @default(100) // lower = preferred within its category
+  fallbackKey   String?   // DataProvider.key to try when this one fails
+  license       String?   // license / attribution / commercial-use notes
+  freshness     String    @default("varies") // realtime | delayed | daily | eod | varies
+  coverage      String?
+  status        String    @default("unknown") // unknown | healthy | degraded | error | needs_key
+  lastCheckedAt DateTime?
+  lastLatencyMs Int?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("data_providers")
+}
+
 // Per-customer broker/data-provider credentials. The rows in
 // india_api_providers stay the catalog + the house/owner credentials; every
 // non-admin customer links their own accounts here.

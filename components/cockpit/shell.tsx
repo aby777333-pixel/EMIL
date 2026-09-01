@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { Menu, X, LogOut, OctagonX, AlertOctagon, Activity, Radio, Newspaper, Wifi, WifiOff, Crown } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
+import { CommandPalette } from './command-palette'
 import { MODE_LABELS, volColor } from '@/lib/format'
 import { toast } from 'sonner'
 import {
@@ -31,7 +32,7 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
   const isAdmin = (sessionData?.user as any)?.role === 'admin'
   const [open, setOpen] = useState(false)
   const [state, setState] = useState<EmilStateLite>({})
-  const [confirmAction, setConfirmAction] = useState<null | 'close_all' | 'emergency_stop'>(null)
+  const [confirmAction, setConfirmAction] = useState<null | 'close_all' | 'emergency_stop' | 'disarm'>(null)
   const [busy, setBusy] = useState(false)
   // The shell remounts on every page navigation, so the sidebar's scroll
   // position is preserved across mounts (report: sidebar jumped to top after
@@ -71,17 +72,21 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
     return () => { clearInterval(t); window.removeEventListener('emil-state-changed', onRefresh) }
   }, [load])
 
-  const runEmergency = async (action: 'close_all' | 'emergency_stop') => {
+  const runEmergency = async (action: 'close_all' | 'emergency_stop' | 'disarm') => {
     setBusy(true)
     try {
       const res = await fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(action === 'disarm' ? { action: 'disarm', option: 'stop_automation' } : { action }),
       })
       const data = await res.json().catch(() => ({}))
       if (res?.ok) {
-        toast.success(action === 'close_all' ? 'CLOSE ALL executed — all positions closed, fills verified.' : 'EMERGENCY STOP engaged — EMIL disarmed, no new exposure.')
+        toast.success(
+          action === 'close_all' ? 'CLOSE ALL executed — all positions closed, fills verified.'
+          : action === 'emergency_stop' ? 'EMERGENCY STOP engaged — EMIL disarmed, no new exposure.'
+          : 'EMIL DISARMED — automation stopped. Broker-side SL/TP remain active; open positions still carry market risk.'
+        )
         window.dispatchEvent(new Event('emil-state-changed'))
         load()
       } else {
@@ -181,10 +186,19 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
           <button className="lg:hidden text-slate-400" onClick={() => setOpen(!open)} aria-label="Toggle menu">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          <div className={`flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${armed ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400' : 'border-slate-500/40 bg-slate-500/10 text-slate-400'}`}>
-            <span className={`h-2 w-2 rounded-full ${armed ? 'bg-emerald-400 pulse-dot' : 'bg-slate-500'}`} />
-            {armed ? 'EMIL ARMED' : 'EMIL DISARMED'}
+          {/* Unmistakable armed indicator + always-accessible DISARM (spec: never hide disarm while live trading is enabled) */}
+          <div className={`flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-bold whitespace-nowrap ${armed ? 'border-red-500/60 bg-red-500/15 text-red-300 danger-glow' : 'border-slate-500/40 bg-slate-500/10 text-slate-400'}`}>
+            <span className={`h-2 w-2 rounded-full ${armed ? 'bg-red-400 pulse-dot' : 'bg-slate-500'}`} />
+            {armed ? 'EMIL ARMED — LIVE TRADING ENABLED' : 'EMIL DISARMED'}
           </div>
+          {armed ? (
+            <button
+              onClick={() => setConfirmAction('disarm')}
+              className="flex items-center gap-1.5 rounded-md border border-red-400 bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-500 transition-colors whitespace-nowrap"
+            >
+              <OctagonX className="h-3.5 w-3.5" /> DISARM
+            </button>
+          ) : null}
           <div className="rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-300 whitespace-nowrap">
             {MODE_LABELS?.[state?.mode ?? ''] ?? 'Observation'}
           </div>
@@ -210,16 +224,20 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto scrollbar-thin">{children}</main>
       </div>
 
+      <CommandPalette />
+
       <AlertDialog open={confirmAction !== null} onOpenChange={(o) => { if (!o) setConfirmAction(null) }}>
         <AlertDialogContent className="border-red-500/40">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-400 flex items-center gap-2">
               <AlertOctagon className="h-5 w-5" />
-              {confirmAction === 'close_all' ? 'CLOSE ALL POSITIONS' : 'EMERGENCY STOP'}
+              {confirmAction === 'close_all' ? 'CLOSE ALL POSITIONS' : confirmAction === 'disarm' ? 'DISARM EMIL' : 'EMERGENCY STOP'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-slate-400 space-y-2">
               {confirmAction === 'close_all'
                 ? 'This will cancel all pending orders, close all open positions and hedges at market, verify fills and report any failures. Market execution may involve slippage.'
+                : confirmAction === 'disarm'
+                ? 'This stops all new autonomous trades and automated modifications immediately. Broker-side SL/TP orders remain active and broker connectivity is preserved for research. Open positions keep their market risk — use CLOSE ALL if you also want to flatten.'
                 : 'This will immediately stop all new exposure, disarm EMIL and enter Emergency mode. Existing broker-side SL/TP orders remain active. Turning EMIL off does not remove market risk from open positions.'}
             </AlertDialogDescription>
           </AlertDialogHeader>

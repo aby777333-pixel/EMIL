@@ -1,17 +1,19 @@
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
   Landmark, FlaskConical, GraduationCap, BrainCircuit, Settings, Plug,
-  Microscope,
+  Microscope, Globe2, Newspaper,
 } from 'lucide-react'
 
 // Customer-facing navigation only. The backend command center lives at
 // /command with its own shell — admins reach it via the shell's admin link.
 export const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/markets', label: 'Global Markets', icon: Globe2 },
+  { href: '/news', label: 'EMIL News', icon: Newspaper },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },
   { href: '/agents', label: 'Agent Council', icon: Network },
-  { href: '/api-hub', label: 'Markets & API Hub', icon: Plug },
+  { href: '/api-hub', label: 'Global API Hub', icon: Plug },
   { href: '/risk', label: 'Risk Management', icon: Gauge },
   { href: '/capital', label: 'Capital & Performance', icon: Landmark },
   { href: '/strategies', label: 'Strategy Center', icon: FlaskConical },

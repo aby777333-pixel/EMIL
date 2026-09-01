@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import LiveFeedPanel from './live-feed'
+import EmilPlatformCard from './emil-platform-card'
 
 const STATUS_STYLES: Record<string, string> = {
   connected: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -215,7 +216,7 @@ export default function ApiHubClient() {
     }
   }, [])
 
-  if (loading) return <LoadingPanel text="Loading India API Hub…" />
+  if (loading) return <LoadingPanel text="Loading Global API Hub…" />
   if (error) return <StatusMessage text={error} />
 
   const providers: any[] = data?.providers ?? []
@@ -244,6 +245,9 @@ export default function ApiHubClient() {
           </p>
         </div>
       </div>
+
+      {/* EMIL native platform vs external brokers */}
+      <EmilPlatformCard />
 
       {/* Market selection */}
       <Panel title="Your Markets — select one or many" icon={Globe2} accent="cyan">
