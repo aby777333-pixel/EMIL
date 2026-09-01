@@ -1,15 +1,21 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export function Panel({ title, icon: Icon, children, className = '', accent = 'cyan' }: {
+export function Panel({ title, icon: Icon, children, className = '', accent = 'cyan', collapsible = false, defaultOpen = true, headerExtra }: {
   title?: string
   icon?: LucideIcon
   children: React.ReactNode
   className?: string
   accent?: 'cyan' | 'red' | 'amber' | 'emerald' | 'violet'
+  collapsible?: boolean
+  defaultOpen?: boolean
+  headerExtra?: React.ReactNode
 }) {
+  const [open, setOpen] = useState(defaultOpen)
   const accentColors: Record<string, string> = {
     cyan: 'text-cyan-400', red: 'text-red-400', amber: 'text-amber-400', emerald: 'text-emerald-400', violet: 'text-violet-400',
   }
@@ -23,12 +29,26 @@ export function Panel({ title, icon: Icon, children, className = '', accent = 'c
       style={{ boxShadow: 'var(--shadow-md)' }}
     >
       {title ? (
-        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-          {Icon ? <Icon className={`h-4 w-4 ${accentColors?.[accent] ?? 'text-cyan-400'}`} /> : null}
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
-        </div>
+        collapsible ? (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className={`w-full flex items-center gap-2 px-4 py-2.5 text-left ${open ? 'border-b border-border' : ''}`}
+          >
+            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? '' : '-rotate-90'} ${accentColors?.[accent] ?? 'text-cyan-400'}`} />
+            {Icon ? <Icon className={`h-4 w-4 shrink-0 ${accentColors?.[accent] ?? 'text-cyan-400'}`} /> : null}
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
+            {headerExtra ? <span className="ml-auto shrink-0">{headerExtra}</span> : null}
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+            {Icon ? <Icon className={`h-4 w-4 ${accentColors?.[accent] ?? 'text-cyan-400'}`} /> : null}
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
+            {headerExtra ? <span className="ml-auto shrink-0">{headerExtra}</span> : null}
+          </div>
+        )
       ) : null}
-      <div className="p-4">{children}</div>
+      {!collapsible || open ? <div className="p-4">{children}</div> : null}
     </motion.section>
   )
 }

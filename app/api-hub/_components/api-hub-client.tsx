@@ -317,7 +317,18 @@ export default function ApiHubClient() {
 
       {/* Data providers: DalalAI (primary) + IndianAPI.in */}
       {indiaOn ? (
-      <Panel title="Market Data & AI Signals — India" icon={Database} accent="emerald">
+      <Panel
+        title="Market Data & AI Signals — India"
+        icon={Database}
+        accent="emerald"
+        collapsible
+        defaultOpen={false}
+        headerExtra={
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300">
+            {dataProviders?.length ?? 0} providers
+          </span>
+        }
+      >
         <div className="space-y-4">
           {dataProviders.map((dp: any) => (
             <div key={dp?.id} className="rounded-lg border border-border/70 bg-secondary/20 p-3">
