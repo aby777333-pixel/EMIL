@@ -17,7 +17,9 @@ import {
 
 const COCKPIT: { href: string; label: string; icon: any; hint?: string }[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/markets', label: 'Global Markets', icon: Globe2, hint: 'terminal · indices · fx · crypto' },
+  { href: '/markets', label: 'Global Markets', icon: Globe2, hint: 'terminal · indices · fx · crypto · watchlist' },
+  { href: '/charts', label: 'Charts', icon: CandlestickChart, hint: 'candles · SMA/EMA · any symbol' },
+  { href: '/correlation', label: 'Correlation Engine', icon: Network, hint: 'pairs · rolling · beta' },
   { href: '/news', label: 'EMIL News', icon: Newspaper, hint: 'global headlines' },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },

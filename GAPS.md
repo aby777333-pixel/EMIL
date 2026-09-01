@@ -13,8 +13,8 @@ Universe Round 1 increment). Rule of the build: extend, never break.
 | Broker permission wizard + mandatory API disclaimer (§6–7) | PARTIAL | Per-customer credential isolation and consent logging exist; a dedicated connect-wizard modal with read/analysis/trading permission tiers is still to build. |
 | Global API Hub (§8–10) | EXISTS | 43 providers across regions/asset classes; per-customer broker links; connection dashboard fields mostly present. |
 | API security (§11) | PARTIAL | Secrets server-side, masked, audited; **still missing: encryption at rest, token rotation, 2FA, rate limiting.** |
-| Research terminal / global market dashboard (§12–13) | ROUND 1 (v1) | /markets: global market clock, indices/metals/energy board, FX reference, crypto — all source-labeled. Country terminals, heatmaps, breadth: MISSING. |
-| Professional charting (§14) | MISSING | Recharts only; TradingView Lightweight Charts is the intended path. |
+| Research terminal / global market dashboard (§12–13) | ROUND 1 (v1) | /markets: global market clock, indices/metals/energy board (LIVE with the owner's Twelve Data key, 8-symbol free-tier budget, 10-min server cache), FX reference, crypto, personal watchlist. Country terminals, heatmaps, breadth: MISSING. |
+| Professional charting (§14, §253) | ROUND 2 | /charts on TradingView Lightweight Charts: candles/line/area, 5m–1W intervals, SMA20/50 + EMA20 computed in-app (§252), volume, quick picks + any symbol, deep link ?symbol=. Drawing tools, saved layouts, compare: MISSING. |
 | EMIL AI Analyst (§15) | PARTIAL | Ask EMIL answers from the attributed knowledge base with citations; not yet wired to live market/portfolio context. |
 | News intelligence (§16–17) | ROUND 1 (v1) | /news over GDELT with 8 categories, publisher links, honest labeling. AI impact scoring: MISSING. |
 | Economic calendar (§18) | MISSING | Needs FRED/official-source keys first (provider hub now ready for them). |
@@ -36,7 +36,10 @@ Universe Round 1 increment). Rule of the build: extend, never break.
 | AI explainability / confidence (§58–59) | EXISTS | Agent votes, reasons for/against, confidence with "model assessment" framing. |
 | Execution protection / idempotency (§61–62) | PARTIAL | Idempotency keys on orders; slippage/spread/latency guards are schema-level, not enforced (no live execution yet). |
 | Audit log (§64) | EXISTS | |
-| Watchlists / research notebook / reports / briefs (§66–69) | PARTIAL | Research notebook exists (auto sessions); watchlists, report generation, morning briefs: MISSING. |
+| Watchlists (§66) | ROUND 2 | Per-user watchlist on /markets with cached delayed quotes, add/remove, chart deep links; capped 8 symbols on the free data plan (stated honestly). Multiple named lists, alerts, sharing: MISSING. |
+| Correlation engine (§97–98) | ROUND 2 | /correlation: any pair, 3M–2Y, Pearson + 30-session rolling chart + beta + annualized vols + current-vs-historical regime detection (stable/strengthening/weakening/inverting), CALCULATED labeling. Matrices, lead/lag, cointegration: MISSING. |
+| Server-side research cache (§73, §282) | ROUND 2 | research_cache table — one upstream fetch per TTL for all users; stale-serve-on-failure labeled STALE; free-tier credit budgets (Twelve Data 8/min) respected by design. |
+| Research notebook / reports / briefs (§67–69) | PARTIAL | Research notebook exists (auto sessions); report generation, morning briefs: MISSING. |
 | EMIL native platform integration (§127–134, §166) | ROUND 1 | "Trade With EMIL" card: Option A (connect broker) vs Option B (EMIL platform → Raptor terminal) with honest LIVE vs COMING SOON labels and the demo-feed disclosure. Smart routing/venue display: MISSING (no live execution engine yet). |
 | Intermarket/correlation/hedging/scenario engines (§96–§115, §138) | MISSING | Flagship institutional layer — build after historical data + keys land. |
 | Instrument master & symbol normalization (§150–151) | MISSING | Prerequisite for the equities terminal. |

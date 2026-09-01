@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
   Landmark, FlaskConical, GraduationCap, BrainCircuit, Settings, Plug,
-  Microscope, Globe2, Newspaper,
+  Microscope, Globe2, Newspaper, GitCompareArrows,
 } from 'lucide-react'
 
 // Customer-facing navigation only. The backend command center lives at
@@ -9,6 +9,8 @@ import {
 export const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/markets', label: 'Global Markets', icon: Globe2 },
+  { href: '/charts', label: 'Charts', icon: CandlestickChart },
+  { href: '/correlation', label: 'Correlation', icon: GitCompareArrows },
   { href: '/news', label: 'EMIL News', icon: Newspaper },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },

@@ -38,9 +38,38 @@ async function timed<T>(key: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
+// Server-side research cache: one upstream fetch per TTL regardless of user
+// count, so free-tier rate limits (Twelve Data: 8 credits/min) are respected.
+// On upstream failure a stale cached copy is served, clearly stamped stale.
+async function cachedFetch<T extends { fetchedAt: string }>(cacheKey: string, ttlSec: number, fn: () => Promise<T>): Promise<T & { cached?: boolean; stale?: boolean }> {
+  const row = await prisma.cacheEntry.findUnique({ where: { key: cacheKey } }).catch(() => null)
+  if (row && Date.now() - row.fetchedAt.getTime() < ttlSec * 1000) {
+    try {
+      return { ...JSON.parse(row.payload), cached: true }
+    } catch { /* corrupt cache — refetch */ }
+  }
+  try {
+    const fresh = await fn()
+    prisma.cacheEntry.upsert({
+      where: { key: cacheKey },
+      update: { payload: JSON.stringify(fresh), fetchedAt: new Date() },
+      create: { key: cacheKey, payload: JSON.stringify(fresh) },
+    }).catch(() => {})
+    return fresh
+  } catch (e) {
+    if (row) {
+      try {
+        // Honest degradation: serve the stale copy, labeled stale.
+        return { ...JSON.parse(row.payload), cached: true, stale: true }
+      } catch { /* fall through */ }
+    }
+    throw e
+  }
+}
+
 // ---- Crypto — CoinGecko (free public API, attribution required) ----
 export async function cryptoMarkets(perPage = 25) {
-  return timed('coingecko', async () => {
+  return cachedFetch(`crypto_markets_${perPage}`, 90, () => timed('coingecko', async () => {
     const res = await timeoutFetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${perPage}&page=1&price_change_percentage=24h,7d`)
     if (!res.ok) throw new Error(`CoinGecko responded ${res.status}`)
     const rows = await res.json()
@@ -52,12 +81,12 @@ export async function cryptoMarkets(perPage = 25) {
         marketCap: c.market_cap, volume24h: c.total_volume, high24h: c.high_24h, low24h: c.low_24h,
       })),
     }
-  })
+  }))
 }
 
 // ---- FX — Frankfurter (ECB daily reference rates) ----
 export async function fxRates(base = 'USD') {
-  return timed('frankfurter', async () => {
+  return cachedFetch(`fx_rates_${base}`, 1800, () => timed('frankfurter', async () => {
     const res = await timeoutFetch(`https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(base)}`)
     if (!res.ok) throw new Error(`Frankfurter responded ${res.status}`)
     const d = await res.json()
@@ -65,7 +94,7 @@ export async function fxRates(base = 'USD') {
       provider: 'frankfurter', attribution: 'ECB reference rates via Frankfurter', freshness: 'daily' as const,
       fetchedAt: new Date().toISOString(), referenceDate: d?.date, base: d?.base, data: d?.rates ?? {},
     }
-  })
+  }))
 }
 
 // ---- Indices / metals / energy board — Twelve Data (free key required).
@@ -73,23 +102,41 @@ export async function fxRates(base = 'USD') {
 // hub's designed fallback becomes the primary: Twelve Data with an owner key.
 // Symbols the free tier cannot serve come back marked unavailable — honest,
 // never faked.
+// Free tier budget: 8 API credits/minute, one credit per symbol in a batch.
+// The board carries 6 symbols (leaving 2 credits/min headroom for charts and
+// correlation) and is cached server-side for 10 minutes — one upstream call
+// per TTL for ALL users combined. More symbols return with a paid data plan.
+// Index/commodity symbols are gated behind paid Twelve Data plans, so the
+// free-tier board uses spot gold plus clearly-labeled ETF PROXIES (verified
+// serving real prices on this key). Never present a proxy as the index itself.
 export const MARKET_BOARD: { symbol: string; label: string; group: string }[] = [
-  { symbol: 'SPX', label: 'S&P 500', group: 'Indices' },
-  { symbol: 'DJI', label: 'Dow Jones', group: 'Indices' },
-  { symbol: 'IXIC', label: 'Nasdaq Comp.', group: 'Indices' },
-  { symbol: 'DAX', label: 'DAX', group: 'Indices' },
-  { symbol: 'FTSE', label: 'FTSE 100', group: 'Indices' },
-  { symbol: 'N225', label: 'Nikkei 225', group: 'Indices' },
-  { symbol: 'XAU/USD', label: 'Gold (XAU/USD)', group: 'Metals' },
-  { symbol: 'XAG/USD', label: 'Silver (XAG/USD)', group: 'Metals' },
-  { symbol: 'WTI/USD', label: 'WTI Crude', group: 'Energy' },
-  { symbol: 'BRN/USD', label: 'Brent Crude', group: 'Energy' },
-  { symbol: 'NG/USD', label: 'Natural Gas', group: 'Energy' },
+  { symbol: 'SPY', label: 'S&P 500 (SPY ETF proxy)', group: 'Indices' },
+  { symbol: 'QQQ', label: 'Nasdaq-100 (QQQ ETF proxy)', group: 'Indices' },
+  { symbol: 'DIA', label: 'Dow Jones (DIA ETF proxy)', group: 'Indices' },
+  { symbol: 'XAU/USD', label: 'Gold (XAU/USD spot)', group: 'Metals' },
+  { symbol: 'SLV', label: 'Silver (SLV ETF proxy)', group: 'Metals' },
+  { symbol: 'USO', label: 'WTI Crude (USO ETF proxy)', group: 'Energy' },
 ]
 
-export async function marketBoard() {
+async function tdKey(): Promise<string | null> {
   const provider = await prisma.dataProvider.findUnique({ where: { key: 'twelve_data' } })
-  if (!provider?.enabled || !provider?.apiKey) {
+  return provider?.enabled && provider?.apiKey ? provider.apiKey : null
+}
+
+async function tdQuoteBatch(symbols: string[], apiKey: string) {
+  const res = await timeoutFetch(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols.join(','))}&apikey=${apiKey}`)
+  if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
+  const body = await res.json()
+  // A top-level {code,message} means the whole call failed (bad key, plan
+  // limit, rate limit) — surface it honestly instead of an all-unavailable board.
+  if (body?.code && body?.message) throw new Error(`Twelve Data: ${String(body.message).slice(0, 200)}`)
+  // Batch responses are keyed by symbol; single-symbol responses are flat.
+  return (body?.symbol ? { [body.symbol]: body } : body ?? {}) as Record<string, any>
+}
+
+export async function marketBoard() {
+  const apiKey = await tdKey()
+  if (!apiKey) {
     return {
       provider: 'twelve_data', needsKey: true,
       attribution: 'Indices, metals & energy need a market-data key',
@@ -98,16 +145,8 @@ export async function marketBoard() {
       data: [] as any[],
     }
   }
-  return timed('twelve_data', async () => {
-    const symbols = MARKET_BOARD.map((b) => b.symbol).join(',')
-    const res = await timeoutFetch(`https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbols)}&apikey=${provider.apiKey}`)
-    if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
-    const body = await res.json()
-    // A top-level {code,message} means the whole call failed (bad key, plan
-    // limit, rate limit) — surface it honestly instead of an all-unavailable board.
-    if (body?.code && body?.message) throw new Error(`Twelve Data: ${String(body.message).slice(0, 200)}`)
-    // Batch responses are keyed by symbol; single-symbol responses are flat.
-    const bySymbol: Record<string, any> = body?.symbol ? { [body.symbol]: body } : body ?? {}
+  return cachedFetch('market_board_v4', 600, () => timed('twelve_data', async () => {
+    const bySymbol = await tdQuoteBatch(MARKET_BOARD.map((b) => b.symbol), apiKey)
     const data = MARKET_BOARD.map((b) => {
       const q = bySymbol[b.symbol]
       const price = parseFloat(q?.close)
@@ -119,31 +158,125 @@ export async function marketBoard() {
         available: isFinite(price),
       }
     })
-    return { provider: 'twelve_data', attribution: 'Research quotes via Twelve Data (delayed; plan-dependent coverage)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data }
-  })
+    return { provider: 'twelve_data', attribution: 'Research quotes via Twelve Data (delayed; cached ~10 min). Index/commodity rows are ETF proxies on the current free data plan — direct index symbols unlock with a paid plan.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data }
+  }))
+}
+
+// ---- Watchlist quotes (spec §66) — capped by the free-tier credit budget ----
+export async function watchlistQuotes(symbols: string[]) {
+  const apiKey = await tdKey()
+  const capped = Array.from(new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))).slice(0, 8)
+  if (capped.length === 0) return { provider: 'twelve_data', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
+  if (!apiKey) {
+    return { provider: 'twelve_data', needsKey: true, message: 'Add a Twelve Data API key in Command Center → Data Providers to quote your watchlist.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
+  }
+  const cacheKey = `wl_quotes_${capped.slice().sort().join('|')}`
+  return cachedFetch(cacheKey, 300, () => timed('twelve_data', async () => {
+    const bySymbol = await tdQuoteBatch(capped, apiKey)
+    const data = capped.map((s) => {
+      const q = bySymbol[s]
+      const price = parseFloat(q?.close)
+      const changePct = parseFloat(q?.percent_change)
+      return {
+        symbol: s, name: q?.name ?? null, exchange: q?.exchange ?? null, currency: q?.currency ?? null,
+        price: isFinite(price) ? price : null, changePct: isFinite(changePct) ? changePct : null,
+        available: isFinite(price), reason: !isFinite(price) ? String(q?.message ?? 'not available on the current data plan').slice(0, 120) : null,
+      }
+    })
+    return { provider: 'twelve_data', attribution: 'Quotes via Twelve Data (delayed; cached ~5 min)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data }
+  }))
 }
 
 // ---- Time series — Twelve Data (charting groundwork) ----
 const TS_INTERVALS = ['1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week', '1month']
 
+const TS_TTL: Record<string, number> = { '1min': 120, '5min': 180, '15min': 300, '30min': 300, '1h': 900, '4h': 1800, '1day': 3600, '1week': 21600, '1month': 43200 }
+
 export async function timeSeries(symbol: string, interval = '1day', outputsize = 90) {
-  const provider = await prisma.dataProvider.findUnique({ where: { key: 'twelve_data' } })
-  if (!provider?.enabled || !provider?.apiKey) {
+  const apiKey = await tdKey()
+  if (!apiKey) {
     return { provider: 'twelve_data', needsKey: true, message: 'Add a free Twelve Data API key in Command Center → Data Providers to enable time series.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
   }
   const iv = TS_INTERVALS.includes(interval) ? interval : '1day'
   const size = Math.max(2, Math.min(500, Math.round(outputsize) || 90))
-  return timed('twelve_data', async () => {
-    const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${iv}&outputsize=${size}&apikey=${provider.apiKey}`)
+  const sym = symbol.trim().toUpperCase()
+  return cachedFetch(`ts_${sym}_${iv}_${size}`, TS_TTL[iv] ?? 900, () => timed('twelve_data', async () => {
+    const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=${size}&apikey=${apiKey}`)
     if (!res.ok) throw new Error(`Twelve Data responded ${res.status}`)
     const body = await res.json()
     if (body?.status !== 'ok' || !Array.isArray(body?.values)) throw new Error(`Twelve Data: ${String(body?.message ?? 'no data for this symbol/interval').slice(0, 200)}`)
     return {
       provider: 'twelve_data', attribution: 'Time series via Twelve Data (research data)', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(),
-      symbol: body?.meta?.symbol ?? symbol, interval: iv, exchange: body?.meta?.exchange ?? null, currency: body?.meta?.currency ?? null,
+      symbol: body?.meta?.symbol ?? sym, interval: iv, exchange: body?.meta?.exchange ?? null, currency: body?.meta?.currency ?? null,
       data: body.values.map((v: any) => ({ time: v.datetime, open: +v.open, high: +v.high, low: +v.low, close: +v.close, volume: v.volume ? +v.volume : null })).reverse(),
     }
-  })
+  }))
+}
+
+// ---- Correlation engine (spec §97–98): CALCULATED analytics from cached
+// daily series — Pearson, rolling window, beta, relative volatility, and
+// current-vs-period comparison. Two TD credits max per uncached pair.
+export async function correlationPair(symbolA: string, symbolB: string, bars = 180) {
+  const size = Math.max(30, Math.min(500, bars))
+  const [a, b] = await Promise.all([timeSeries(symbolA, '1day', size), timeSeries(symbolB, '1day', size)])
+  if ((a as any).needsKey || (b as any).needsKey) return { needsKey: true, message: (a as any).message ?? (b as any).message }
+  const mapA = new Map((a as any).data.map((x: any) => [x.time, x.close]))
+  const joined: { time: string; ra: number; rb: number }[] = []
+  let prevA: number | null = null
+  let prevB: number | null = null
+  for (const row of (b as any).data) {
+    const ca = mapA.get(row.time) as number | undefined
+    if (ca === undefined) continue
+    if (prevA !== null && prevB !== null && prevA !== 0 && prevB !== 0) {
+      joined.push({ time: row.time, ra: Math.log(ca / prevA), rb: Math.log(row.close / prevB) })
+    }
+    prevA = ca
+    prevB = row.close
+  }
+  if (joined.length < 20) throw new Error(`Only ${joined.length} overlapping sessions between ${symbolA} and ${symbolB} — not enough for a reliable correlation.`)
+
+  const pearson = (xs: number[], ys: number[]) => {
+    const n = xs.length
+    const mx = xs.reduce((s, v) => s + v, 0) / n
+    const my = ys.reduce((s, v) => s + v, 0) / n
+    let num = 0, dx = 0, dy = 0
+    for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); dx += (xs[i] - mx) ** 2; dy += (ys[i] - my) ** 2 }
+    return dx && dy ? num / Math.sqrt(dx * dy) : 0
+  }
+  const ras = joined.map((j) => j.ra)
+  const rbs = joined.map((j) => j.rb)
+  const overall = pearson(ras, rbs)
+  const W = 30
+  const rolling = joined.slice(W - 1).map((_, i) => ({
+    time: joined[i + W - 1].time,
+    corr: pearson(ras.slice(i, i + W), rbs.slice(i, i + W)),
+  }))
+  const std = (xs: number[]) => {
+    const m = xs.reduce((s, v) => s + v, 0) / xs.length
+    return Math.sqrt(xs.reduce((s, v) => s + (v - m) ** 2, 0) / xs.length)
+  }
+  const volA = std(ras) * Math.sqrt(252) * 100
+  const volB = std(rbs) * Math.sqrt(252) * 100
+  const beta = std(rbs) > 0 ? overall * (std(ras) / std(rbs)) : 0
+  const recent = rolling.length ? rolling[rolling.length - 1].corr : overall
+  const avgRolling = rolling.length ? rolling.reduce((s, r) => s + r.corr, 0) / rolling.length : overall
+  const regime = Math.abs(recent - avgRolling) < 0.15 ? 'stable' : recent > avgRolling ? (recent * avgRolling < 0 ? 'inverting' : 'strengthening') : (recent * avgRolling < 0 ? 'inverting' : 'weakening')
+
+  return {
+    provider: 'twelve_data', dataClass: 'CALCULATED',
+    attribution: 'Calculated by EMIL from Twelve Data daily closes (log returns). Correlations change — never treat them as permanent facts.',
+    fetchedAt: new Date().toISOString(),
+    symbolA: (a as any).symbol, symbolB: (b as any).symbol,
+    sessions: joined.length,
+    overallCorrelation: overall,
+    recentCorrelation: recent,
+    averageRollingCorrelation: avgRolling,
+    regime,
+    rollingWindow: W,
+    rolling,
+    annualizedVolA: volA, annualizedVolB: volB,
+    betaAonB: beta,
+  }
 }
 
 // ---- News — GDELT DOC 2.0 (open global news index) ----
@@ -221,12 +354,15 @@ async function googleNewsRss(category: string, maxRecords: number) {
 }
 
 // PRIMARY → FALLBACK per the hub design: GDELT first, Google News RSS second.
+// Cached 5 minutes per category so free feeds are never hammered.
 export async function newsFeed(category = 'markets', maxRecords = 30) {
-  try {
-    return await gdeltNews(category, maxRecords)
-  } catch {
-    return await googleNewsRss(category, maxRecords)
-  }
+  return cachedFetch(`news_${category}_${maxRecords}`, 300, async () => {
+    try {
+      return await gdeltNews(category, maxRecords)
+    } catch {
+      return await googleNewsRss(category, maxRecords)
+    }
+  })
 }
 
 // ---- Health tests for the admin console ----

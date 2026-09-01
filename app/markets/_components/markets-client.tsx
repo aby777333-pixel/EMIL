@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Panel, LoadingPanel, Stat } from '@/components/cockpit/panel'
 import { Globe2, Clock3, Bitcoin, DollarSign, CandlestickChart, RefreshCw } from 'lucide-react'
+import WatchlistPanel from './watchlist-panel'
 
 const CENTERS: { city: string; tz: string; open: number; close: number; days: number[] }[] = [
   { city: 'Sydney', tz: 'Australia/Sydney', open: 10, close: 16, days: [1, 2, 3, 4, 5] },
@@ -114,7 +115,10 @@ export default function MarketsClient() {
         <p className="text-[10px] text-slate-500 mt-2">Cash-equity core sessions, local exchange time. Holiday calendars are not yet applied — see the India hub for NSE/BSE/MCX holiday-aware sessions.</p>
       </Panel>
 
-      {/* Indices / metals / energy — Stooq research quotes */}
+      {/* Personal watchlist */}
+      <WatchlistPanel />
+
+      {/* Indices / metals / energy — research quotes */}
       <Panel title="Indices · Metals · Energy — research quotes" icon={CandlestickChart} accent="amber">
         {errors.board ? <p className="text-xs text-amber-300">{errors.board}</p> : !board ? <LoadingPanel text="Loading market board..." /> : board.needsKey ? (
           <p className="text-xs text-amber-300">{board.message}</p>

@@ -123,6 +123,30 @@ model DataProvider {
   @@map("data_providers")
 }
 
+// Server-side research-feed cache — one upstream fetch per TTL regardless of
+// user count, so free-tier rate limits (e.g. Twelve Data 8 credits/min) are
+// respected. Research data only.
+model CacheEntry {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  payload   String
+  fetchedAt DateTime @default(now())
+
+  @@map("research_cache")
+}
+
+// Per-user market watchlist (spec §66). Symbols are Twelve Data notation.
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, symbol])
+  @@map("watchlist_items")
+}
+
 // Per-customer broker/data-provider credentials. The rows in
 // india_api_providers stay the catalog + the house/owner credentials; every
 // non-admin customer links their own accounts here.
