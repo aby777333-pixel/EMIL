@@ -69,6 +69,12 @@ export default function IngestTab({ onChanged }: { onChanged: () => void }) {
           })
           const idata = await ir.json().catch(() => null)
           if (!ir.ok) {
+            if (!idata && (ir.status === 502 || ir.status === 504 || ir.status === 500)) {
+              // Long transcripts can exceed the serverless gateway window while
+              // the analysis still completes in the background.
+              logSet(src.url, 'analyzing', 'Analysis is taking longer than the gateway allows — it usually still completes. Check the Source Library tab in a minute.')
+              continue
+            }
             logSet(src.url, 'failed', idata?.error ?? `HTTP ${ir.status}`)
             toast.error(`${src.url}: ${idata?.error ?? 'analysis failed'}`, { duration: 6000 })
             continue

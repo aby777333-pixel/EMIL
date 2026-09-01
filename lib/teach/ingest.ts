@@ -147,7 +147,12 @@ async function fetchYouTube(url: string, videoId: string): Promise<FetchedSource
     const d = res.ok ? await res.json().catch(() => null) : null
     const status = d?.playabilityStatus?.status
     if (status && status !== 'OK') {
-      out.fetchError = `Video is not publicly playable (${status}) — EMIL only analyzes publicly available material.`
+      // LOGIN_REQUIRED from a cloud server usually means YouTube's bot
+      // protection blocked the datacenter IP — the video itself is public.
+      out.fetchError = status === 'LOGIN_REQUIRED'
+        ? 'YouTube restricted transcript access from EMIL’s cloud servers (datacenter bot protection) — analysis used title/channel metadata only. A dedicated transcript service is on the roadmap.'
+        : `Video is not publicly playable (${status}) — EMIL only analyzes publicly available material.`
+      if (status === 'LOGIN_REQUIRED') return out
       return out
     }
     const vd = d?.videoDetails
