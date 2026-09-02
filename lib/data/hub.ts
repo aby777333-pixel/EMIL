@@ -55,6 +55,12 @@ async function cachedFetch<T extends { fetchedAt: string }>(cacheKey: string, tt
       update: { payload: JSON.stringify(fresh), fetchedAt: new Date() },
       create: { key: cacheKey, payload: JSON.stringify(fresh) },
     }).catch(() => {})
+    // Opportunistic eviction (~2% of writes): the cache would otherwise grow
+    // without bound. Entries older than 7 days are past every TTL and only
+    // useful as stale-serve fallbacks, which a week-old quote no longer is.
+    if (Math.random() < 0.02) {
+      prisma.cacheEntry.deleteMany({ where: { fetchedAt: { lt: new Date(Date.now() - 7 * 86400e3) } } }).catch(() => {})
+    }
     return fresh
   } catch (e) {
     if (row) {
@@ -151,6 +157,11 @@ async function reserveTdCredits(n: number): Promise<void> {
       minuteKey, String(n), n,
     )
     const used = parseInt(rows?.[0]?.payload ?? '0', 10)
+    // Fire-and-forget cleanup of spent budget minutes — one counter row is
+    // written per wall-clock minute and would otherwise accumulate forever.
+    prisma.cacheEntry.deleteMany({
+      where: { key: { startsWith: 'td_budget_' }, fetchedAt: { lt: new Date(Date.now() - 180e3) } },
+    }).catch(() => {})
     if (used > TD_BUDGET_PER_MINUTE) {
       throw rateLimitedError(`The market-data feed reached its per-minute budget (free plan: 8 credits/min).`)
     }
@@ -435,9 +446,9 @@ export async function testProvider(key: string, apiKey?: string | null): Promise
         return done(t.includes('<item>'), t.includes('<item>') ? 'Google News RSS OK.' : `Responded ${r.status}`)
       }
       case 'stooq': {
-        const r = await timeoutFetch('https://stooq.com/q/l/?s=%5Espx&f=sd2t2ohlcv&h&e=csv')
-        const t = r.ok ? await r.text() : ''
-        return done(t.includes(','), t.includes(',') ? 'Stooq quote CSV OK.' : `Responded ${r.status}`)
+        // Stooq retired its public quote-CSV endpoint (verified 2026-09-01).
+        // The catalog entry is kept for reference only — no data path uses it.
+        return done(false, 'Retired: Stooq shut down its public quote-CSV endpoint (verified 2026-09-01). Kept for reference — Twelve Data serves this role now.')
       }
       case 'worldbank': {
         const r = await timeoutFetch('https://api.worldbank.org/v2/country/US/indicator/NY.GDP.MKTP.CD?format=json&per_page=1')

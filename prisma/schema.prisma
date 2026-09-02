@@ -963,3 +963,54 @@ model ConfidenceEvent {
 
   @@map("confidence_events")
 }
+
+// ---- Alert & Notification Center (spec §37, §65) ------------------------
+// Price alerts are set on watchlist symbols only, so alert evaluation rides
+// the same cached watchlist quotes and never spends extra data-plan credits.
+model PriceAlert {
+  id          String    @id @default(cuid())
+  userId      String
+  symbol      String
+  condition   String    // above | below
+  threshold   Float
+  status      String    @default("active") // active | triggered | disabled
+  note        String?
+  lastPrice   Float?
+  triggeredAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@map("price_alerts")
+}
+
+// In-app notification center. Delivery is in-app only today (email/push are
+// future channels — never claim otherwise in the UI).
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String    // price_alert | system | risk | broker | admin
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ---- Feature flags (spec §77) -------------------------------------------
+// High-risk modules ship behind admin-controlled flags. Reads are cached
+// briefly in-process; flips take effect within ~30s without a deploy.
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("feature_flags")
+}

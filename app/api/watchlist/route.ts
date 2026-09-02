@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { watchlistQuotes } from '@/lib/data/hub'
+import { evaluateAlerts } from '@/lib/alerts'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,9 @@ export async function GET() {
     if (items.length) {
       try {
         quotes = await watchlistQuotes(items.map((i) => i.symbol))
+        // Piggyback price-alert evaluation on the quotes we just fetched —
+        // zero extra data-plan credits (spec §37).
+        if (Array.isArray(quotes?.data)) await evaluateAlerts(userId, quotes.data)
       } catch (e: any) {
         // The list itself always loads; quotes degrade honestly.
         quotes = e?.rateLimited

@@ -12,7 +12,8 @@ import {
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge, Landmark, FlaskConical,
   GraduationCap, BrainCircuit, Settings, Plug, Microscope, Globe2, Newspaper, Crown,
-  Users, Database, KeyRound, ExternalLink, MessageCircleQuestion, Radio,
+  Users, Database, KeyRound, ExternalLink, MessageCircleQuestion, Radio, BellRing, Cable,
+  ScrollText, Flag,
 } from 'lucide-react'
 
 const COCKPIT: { href: string; label: string; icon: any; hint?: string }[] = [
@@ -21,6 +22,7 @@ const COCKPIT: { href: string; label: string; icon: any; hint?: string }[] = [
   { href: '/charts', label: 'Charts', icon: CandlestickChart, hint: 'candles · SMA/EMA · any symbol' },
   { href: '/correlation', label: 'Correlation Engine', icon: Network, hint: 'pairs · rolling · beta' },
   { href: '/news', label: 'EMIL News', icon: Newspaper, hint: 'global headlines' },
+  { href: '/alerts', label: 'Alert Center', icon: BellRing, hint: 'price alerts · notifications' },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },
   { href: '/agents', label: 'Agent Council', icon: Network },
@@ -37,9 +39,12 @@ const COCKPIT: { href: string; label: string; icon: any; hint?: string }[] = [
 const COMMAND: { href: string; label: string; icon: any }[] = [
   { href: '/command', label: 'Command Center — Overview', icon: Crown },
   { href: '/command/customers', label: 'Command Center — Customers · CRM', icon: Users },
+  { href: '/command/connections', label: 'Command Center — Broker Connections', icon: Cable },
   { href: '/command/providers', label: 'Command Center — Data Providers', icon: Database },
   { href: '/command/keys', label: 'Command Center — API Keys', icon: KeyRound },
+  { href: '/command/flags', label: 'Command Center — Feature Flags', icon: Flag },
   { href: '/command/research', label: 'Command Center — Research Ops', icon: GraduationCap },
+  { href: '/command/audit', label: 'Command Center — Audit Trail', icon: ScrollText },
 ]
 
 export function CommandPalette() {

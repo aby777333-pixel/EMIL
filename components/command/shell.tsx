@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import {
   Menu, X, LogOut, Crown, LayoutDashboard, Users, Cable, KeyRound,
-  GraduationCap, ArrowLeftCircle, ScrollText, Database,
+  GraduationCap, ArrowLeftCircle, ScrollText, Database, Flag,
 } from 'lucide-react'
 import { CommandPalette } from '@/components/cockpit/command-palette'
 
@@ -21,6 +21,7 @@ const COMMAND_NAV = [
   { href: '/command/connections', label: 'Broker Connections', icon: Cable },
   { href: '/command/providers', label: 'Data Providers', icon: Database },
   { href: '/command/keys', label: 'API Keys', icon: KeyRound },
+  { href: '/command/flags', label: 'Feature Flags', icon: Flag },
   { href: '/command/research', label: 'Research Ops', icon: GraduationCap },
   { href: '/command/audit', label: 'Audit Trail', icon: ScrollText },
 ]

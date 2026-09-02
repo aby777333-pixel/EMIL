@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +33,19 @@ export async function POST(req: Request) {
     const action = body?.action ?? ''
     const state = await prisma.emilState.findFirst()
     if (!state) return NextResponse.json({ error: 'State not initialized' }, { status: 500 })
+
+    // EMIL's trading state is a single global row on this deployment, and
+    // self-registration is open — so actions that ADD risk or mutate shared
+    // state (arm, mode change, close-all) are restricted to the platform
+    // owner. Risk-REDUCING actions (disarm, emergency stop) stay available
+    // to every signed-in user: a kill switch must never be permission-walled.
+    const flattensPositions = action === 'close_all' || (action === 'disarm' && body?.option === 'stop_close_all')
+    if (['arm', 'mode_change'].includes(action) || flattensPositions) {
+      const admin = await requireAdmin(userId)
+      if (!admin) {
+        return NextResponse.json({ error: 'Only the platform owner can perform this action on this deployment. DISARM (stop automation) and EMERGENCY STOP remain available to everyone.' }, { status: 403 })
+      }
+    }
 
     if (action === 'arm') {
       const mode = body?.mode ?? 'confirmation'

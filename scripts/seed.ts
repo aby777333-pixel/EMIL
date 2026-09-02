@@ -476,6 +476,40 @@ async function main() {
     });
   }
 
+  // ---- Data Provider Hub (free/open-first research catalog) ----
+  // Idempotent: metadata is refreshed on every seed, but apiKey / enabled /
+  // status are NEVER touched — owner-entered keys and toggles survive reseeds.
+  const { DATA_PROVIDERS } = await import('../lib/data/catalog');
+  for (const p of DATA_PROVIDERS) {
+    await prisma.dataProvider.upsert({
+      where: { key: p.key },
+      update: {
+        name: p.name, category: p.category, baseUrl: p.baseUrl, docsUrl: p.docsUrl,
+        authType: p.authType, priority: p.priority, fallbackKey: p.fallbackKey ?? null,
+        license: p.license, freshness: p.freshness, coverage: p.coverage,
+      },
+      create: {
+        key: p.key, name: p.name, category: p.category, baseUrl: p.baseUrl, docsUrl: p.docsUrl,
+        authType: p.authType, priority: p.priority, fallbackKey: p.fallbackKey ?? null,
+        license: p.license, freshness: p.freshness, coverage: p.coverage,
+        status: p.authType === 'api_key' ? 'needs_key' : 'unknown',
+        enabled: p.key !== 'stooq', // retired upstream — kept for reference
+      },
+    });
+  }
+
+  // ---- Feature flags (spec §77) — created only if missing; admin state wins.
+  const FLAG_DEFAULTS = [
+    { key: 'alerts_center', label: 'Alert & Notification Center', description: 'Price alerts on watchlist symbols + the in-app notification bell (spec §37/§65).', enabled: true },
+    { key: 'autonomous_trading', label: 'Autonomous live trading', description: 'Master gate for any future live autonomous execution. Keep OFF until a real execution engine ships.', enabled: false },
+    { key: 'crypto_payments', label: 'Crypto subscription payments', description: 'Future billing rail (spec §48). No gateway integrated yet.', enabled: false },
+    { key: 'institutional_workspaces', label: 'Institutional workspaces', description: 'Future organizations/teams layer (spec §38–39).', enabled: false },
+    { key: 'options_analytics', label: 'Options analytics', description: 'Future options terminal (spec §25) — needs a keyed options data provider.', enabled: false },
+  ];
+  for (const f of FLAG_DEFAULTS) {
+    await prisma.featureFlag.upsert({ where: { key: f.key }, update: {}, create: f });
+  }
+
   // ---- India Market API Hub (NSE / BSE / MCX) ----
   const { INDIA_PROVIDERS, INDIA_INSTRUMENTS, INDIA_EXCHANGE_SESSIONS, INDIA_HOLIDAYS_2026 } = await import('../lib/india/providers');
   const { GLOBAL_BROKERS } = await import('../lib/global-brokers');

@@ -7,6 +7,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { Menu, X, LogOut, OctagonX, AlertOctagon, Activity, Radio, Newspaper, Wifi, WifiOff, Crown } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
 import { CommandPalette } from './command-palette'
+import { NotificationsBell } from './notifications-bell'
 import { MODE_LABELS, volColor } from '@/lib/format'
 import { toast } from 'sonner'
 import {
@@ -219,6 +220,7 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
             <Newspaper className="h-3 w-3" />
             {state?.nextNewsEvent ? `${state.nextNewsEvent} in ${newsLabel}` : 'No high-impact news'}
           </div>
+          <div className="ml-auto sm:ml-0 shrink-0"><NotificationsBell /></div>
         </header>
 
         <main className="flex-1 overflow-y-auto scrollbar-thin">{children}</main>

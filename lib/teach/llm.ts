@@ -6,6 +6,9 @@ const ENDPOINT = 'https://apps.abacus.ai/v1/chat/completions'
 const MODEL = 'gpt-5.4-mini'
 
 export async function llmComplete(system: string, user: string, maxTokens = 3000): Promise<string> {
+  if (!process.env.ABACUSAI_API_KEY) {
+    throw new Error('AI engine not configured — set ABACUSAI_API_KEY in the server environment.')
+  }
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.ABACUSAI_API_KEY}` },

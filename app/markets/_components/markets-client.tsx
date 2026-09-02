@@ -37,7 +37,7 @@ const fmtTime = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString() : '�
 const pctTone = (v?: number | null) => (typeof v !== 'number' ? 'text-slate-500' : v >= 0 ? 'text-emerald-400' : 'text-red-400')
 const fmtPctS = (v?: number | null) => (typeof v !== 'number' ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`)
 
-function SourceTag({ text, freshness }: { text: string; freshness: string }) {
+function SourceTag({ freshness }: { freshness: string }) {
   const tone = freshness === 'realtime' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/5' : freshness === 'delayed' ? 'text-amber-300 border-amber-500/30 bg-amber-500/5' : 'text-cyan-300 border-cyan-500/30 bg-cyan-500/5'
   return <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${tone}`}>{freshness}</span>
 }
@@ -149,7 +149,7 @@ export default function MarketsClient() {
               ))}
             </div>
             <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
-              <SourceTag text="stooq" freshness="delayed" /> {board.attribution} · change vs session open · fetched {fmtTime(board.fetchedAt)}
+              <SourceTag freshness="delayed" /> {board.attribution} · change vs session open · fetched {fmtTime(board.fetchedAt)}
             </p>
           </>
         )}
@@ -166,7 +166,7 @@ export default function MarketsClient() {
                 ))}
               </div>
               <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
-                <SourceTag text="ecb" freshness="daily" /> {fx.attribution} · reference date {fx.referenceDate} · fetched {fmtTime(fx.fetchedAt)}. Daily fixing — NOT a live tradable price.
+                <SourceTag freshness="daily" /> {fx.attribution} · reference date {fx.referenceDate} · fetched {fmtTime(fx.fetchedAt)}. Daily fixing — NOT a live tradable price.
               </p>
             </>
           )}
@@ -197,7 +197,7 @@ export default function MarketsClient() {
                 </table>
               </div>
               <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
-                <SourceTag text="coingecko" freshness="realtime" /> {crypto.attribution} · fetched {fmtTime(crypto.fetchedAt)}
+                <SourceTag freshness="realtime" /> {crypto.attribution} · fetched {fmtTime(crypto.fetchedAt)}
               </p>
             </>
           )}

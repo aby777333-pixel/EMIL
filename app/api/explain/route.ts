@@ -35,6 +35,9 @@ export async function POST(req: Request) {
       },
     ]
 
+    if (!process.env.ABACUSAI_API_KEY) {
+      return NextResponse.json({ error: 'AI engine not configured — set ABACUSAI_API_KEY in the server environment.' }, { status: 503 })
+    }
     const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
