@@ -101,6 +101,17 @@ export async function resolveVenue(userId: string, isAdmin: boolean, providerKey
   return { adapter, provider, paper: adapter.paper }
 }
 
+// Read-only access (balances, positions): any linked key + secret qualifies —
+// the trading tier is only required to place or cancel orders.
+export async function resolveVenueForRead(userId: string, isAdmin: boolean, providerKey: string) {
+  if (!isExecutionVenue(providerKey)) throw new ExecError(400, `${providerKey} is not an execution venue.`)
+  const { provider, creds } = await credentialRow(userId, isAdmin, providerKey)
+  if (!provider) throw new ExecError(404, 'Venue not found in the API Hub.')
+  if (!creds?.apiKey || !creds?.apiSecret) throw new ExecError(403, 'No API key + secret linked yet.')
+  const adapter = buildAdapter({ key: providerKey, baseUrl: provider.baseUrl, apiKey: creds.apiKey, apiSecret: creds.apiSecret, clientCode: creds.clientCode })
+  return { adapter, provider, paper: adapter.paper }
+}
+
 const instrumentCache = new Map<string, { at: number; list: VenueInstrument[] }>()
 async function cachedInstruments(adapter: VenueAdapter): Promise<VenueInstrument[]> {
   const hit = instrumentCache.get(adapter.key)

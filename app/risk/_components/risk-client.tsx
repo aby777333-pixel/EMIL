@@ -5,6 +5,7 @@ import { Panel, LoadingPanel, StatusMessage, Meter } from '@/components/cockpit/
 import { fmtMoney, fmtNum, fmtPct } from '@/lib/format'
 import { Shield, Calculator, TrendingDown, GitBranch, PieChart, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import BreakersPanel from './breakers-panel'
 
 const DURATIONS = [
   { key: 'one_order', label: 'One order' },
@@ -170,6 +171,8 @@ export default function RiskClient() {
             {calc?.reason ? <p className="text-[11px] text-slate-500 leading-snug">{calc.reason}</p> : null}
           </div>
         </Panel>
+
+        <BreakersPanel />
 
         <Panel title="Drawdown Guard" icon={TrendingDown} accent="red">
           <div className="space-y-3 mb-4">

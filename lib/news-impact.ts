@@ -27,7 +27,8 @@ why: one sentence, max 20 words, plain language.
 Return {"items":[{"i":<index>,"impact":"high|medium|low","tone":"risk-on|risk-off|neutral","assets":["..."],"why":"..."}]} covering EVERY index given.`
 
 export async function scoreHeadlines(articles: { title: string; domain?: string | null }[]) {
-  const list = articles.slice(0, 40)
+  // 24 headlines keeps one scoring call comfortably inside the serverless time budget (measured ~23 s for 30).
+  const list = articles.slice(0, 24)
   if (list.length === 0) return { fetchedAt: new Date().toISOString(), model: NEWS_SCORING_MODEL, items: [] as HeadlineImpact[] }
   const hash = createHash('sha1').update(list.map((a) => a.title).join('\n')).digest('hex').slice(0, 20)
   return cachedFetch(`news_impact_${hash}`, 1800, async () => {

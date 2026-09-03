@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { evaluateBreakers } from '@/lib/breakers'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,9 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
+    // Circuit breakers (spec §30–31) run on every state read (memoised ~45 s);
+    // a disarm-class trip flips `armed` BEFORE the state is returned.
+    const breakers = await evaluateBreakers({ enforce: true }).catch(() => null)
     const [state, conn] = await Promise.all([
       prisma.emilState.findFirst(),
       prisma.brokerConnection.findFirst(),
@@ -17,6 +21,8 @@ export async function GET() {
       ...(state ?? {}),
       brokerStatus: conn?.status ?? 'connected',
       brokerLatencyMs: conn?.latencyMs ?? 0,
+      breakersTripped: breakers?.tripped ?? [],
+      breakersEnforced: breakers?.enforced ?? [],
     })
   } catch (e) {
     console.error(e)
