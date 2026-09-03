@@ -1070,6 +1070,11 @@ model VenueOrder {
   message       String?
   raw           String?
   clientOrderId String   @unique @default(cuid())
+  // Execution protections (spec §61–62)
+  refPrice       Float?
+  slippageBps    Float?
+  quoteLatencyMs Int?
+  guardNotes     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

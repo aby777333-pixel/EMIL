@@ -18,11 +18,12 @@ type Ticker = { symbol: string; bid?: number; ask?: number; last?: number; mark?
 type Order = { id: string; symbol: string; side: string; type: string; qty: number; price?: number; filledQty: number; avgFillPrice?: number; status: string; ts: number }
 type Position = { symbol: string; qty: number; entryPrice?: number; markPrice?: number; unrealizedPnl?: number }
 type Balance = { asset: string; total: number; available: number }
-type LogRow = { id: string; symbol: string; side: string; orderType: string; qty: number; price?: number | null; notionalUsd?: number | null; status: string; filledQty: number; avgFillPrice?: number | null; message?: string | null; venueOrderId?: string | null; createdAt: string }
+type LogRow = { id: string; symbol: string; side: string; orderType: string; qty: number; price?: number | null; notionalUsd?: number | null; status: string; filledQty: number; avgFillPrice?: number | null; message?: string | null; venueOrderId?: string | null; createdAt: string; refPrice?: number | null; slippageBps?: number | null; quoteLatencyMs?: number | null; guardNotes?: string | null }
 type Slot<T> = { data: T | null; error: string | null }
 type Desk = {
   disabled?: boolean
   venues: Venue[]; isAdmin: boolean; armed: boolean; mode: string; liveExecutionEnabled: boolean; caps: { paper: number; live: number }
+  guards?: { maxQuoteAgeMs: number; maxQuoteLatencyMs: number; maxSpreadBps: number; maxLimitDeviationPct: number; slippageAlertBps: number; duplicateWindowSec: number; maxOrdersPerDay: number }
   venue?: string; venueLabel?: string; paper?: boolean; venueError?: string
   instruments?: Slot<Inst[]>; balances?: Slot<Balance[]>; positions?: Slot<Position[]>; openOrders?: Slot<Order[]>; ticker?: Slot<Ticker | null>; log?: LogRow[]
 }
@@ -210,6 +211,11 @@ export default function PaperDeskClient() {
             </Panel>
 
             <Panel title={`Ticket — ${symbol || 'pick an instrument'}`} icon={Beaker} accent={paper ? 'amber' : 'red'}>
+              {desk?.guards ? (
+                <p className="mb-2 text-[10px] text-slate-500">
+                  <span className="uppercase tracking-wider text-emerald-400/90 font-bold">Protections</span> · quote ≤ {desk.guards.maxQuoteAgeMs / 1000}s old · latency ≤ {desk.guards.maxQuoteLatencyMs} ms · spread ≤ {desk.guards.maxSpreadBps} bps for market orders · limit within {desk.guards.maxLimitDeviationPct}% of reference · duplicate window {desk.guards.duplicateWindowSec}s · {desk.guards.maxOrdersPerDay} orders/day · slippage alert &gt; {desk.guards.slippageAlertBps} bps · live orders refused while a circuit breaker is tripped
+                </p>
+              ) : null}
               <div className="grid grid-cols-4 gap-2 mb-3">
                 <Stat label="Bid" value={fmt(ticker?.bid, 4)} size="sm" />
                 <Stat label="Ask" value={fmt(ticker?.ask, 4)} size="sm" />
@@ -286,7 +292,7 @@ export default function PaperDeskClient() {
               {(desk?.log ?? []).length === 0 ? <p className="text-xs text-slate-500">No orders sent from EMIL on this venue yet.</p> : (
                 <Table head={['When', 'Symbol', 'Side', 'Type', 'Qty', 'Price', '≈ USD', 'Filled', 'Status']} rows={(desk?.log ?? []).map((o) => [
                   new Date(o.createdAt).toLocaleString(), o.symbol, <span className={o.side === 'buy' ? 'text-emerald-300' : 'text-red-300'}>{o.side}</span>, o.orderType, fmt(o.qty, 4), fmt(o.price, 4), fmt(o.notionalUsd, 0),
-                  o.filledQty ? `${fmt(o.filledQty, 4)}${o.avgFillPrice ? ` @ ${fmt(o.avgFillPrice, 4)}` : ''}` : '—',
+                  o.filledQty ? `${fmt(o.filledQty, 4)}${o.avgFillPrice ? ` @ ${fmt(o.avgFillPrice, 4)}` : ''}${o.slippageBps != null ? ` · slip ${o.slippageBps.toFixed(1)} bps` : ''}` : '—',
                   <span className={STATUS[o.status] ?? ''} title={o.message ?? ''}>{o.status.replace('_', ' ')}{o.message ? ' ⓘ' : ''}</span>,
                 ])} />
               )}

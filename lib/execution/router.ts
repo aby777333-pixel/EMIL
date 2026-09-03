@@ -17,6 +17,7 @@ import { deribitAdapter } from './deribit'
 import { geminiAdapter } from './gemini'
 import { deltaAdapter } from './delta'
 import type { OrderRequest, VenueAdapter, VenueCreds, VenueInstrument } from './types'
+import { preTradeGuards, realizedSlippageBps, GuardError, EXECUTION_GUARDS } from './guards'
 
 export const EXECUTION_VENUE_KEYS = ['deribit_testnet', 'gemini_sandbox', 'delta_exchange_testnet', 'deribit', 'gemini', 'delta_exchange'] as const
 export type ExecutionVenueKey = (typeof EXECUTION_VENUE_KEYS)[number]
@@ -154,8 +155,10 @@ export async function placeGuarded(args: { userId: string; isAdmin: boolean; ven
   if (instruments.length && !inst) throw new ExecError(400, `${req.symbol} is not in the tradable list for ${adapter.label}.`)
   if (inst?.minQty && req.qty < inst.minQty) throw new ExecError(400, `Minimum quantity on ${req.symbol} is ${inst.minQty} ${inst.qtyUnit}.`)
 
-  const ticker = await adapter.ticker(req.symbol).catch(() => null)
-  const ref = req.type === 'limit' ? req.price : (ticker?.mark ?? ticker?.last ?? (req.side === 'buy' ? ticker?.ask : ticker?.bid))
+  // Execution protections (spec §61–62): duplicate / daily budget / breakers / quote age, latency, spread / fat finger.
+  const guard = await preTradeGuards({ userId, venueKey, paper, req, adapter, inst }).catch((e) => { if (e instanceof GuardError) throw new ExecError(e.status, e.message); throw e })
+  const ticker = guard.ticker
+  const ref = req.type === 'limit' ? req.price : guard.ref
   const notional = estimateNotionalUsd(venueKey, req.qty, ref, inst)
   const cap = paper ? PAPER_MAX_NOTIONAL_USD : LIVE_MAX_NOTIONAL_USD
   if (notional !== null && notional > cap) throw new ExecError(400, `Order notional ≈ $${Math.round(notional).toLocaleString()} exceeds the ${paper ? 'paper' : 'LIVE'} per-order cap of $${cap.toLocaleString()}.`)
@@ -164,17 +167,22 @@ export async function placeGuarded(args: { userId: string; isAdmin: boolean; ven
     data: {
       userId, providerKey: venueKey, paper, symbol: req.symbol, side: req.side, orderType: req.type,
       qty: req.qty, price: req.type === 'limit' ? req.price : null, notionalUsd: notional, status: 'submitted',
+      refPrice: guard.ref ?? null, quoteLatencyMs: guard.quoteLatencyMs, guardNotes: guard.notes.length ? guard.notes.join(' | ').slice(0, 500) : null,
     },
   })
   try {
     const order = await adapter.placeOrder({ ...req, clientId: record.clientOrderId })
+    const slippageBps = order.avgFillPrice && guard.ref ? realizedSlippageBps(req.side, guard.ref, order.avgFillPrice) : null
     const updated = await prisma.venueOrder.update({
       where: { id: record.id },
       data: {
         venueOrderId: order.id || null, status: order.status, filledQty: order.filledQty, avgFillPrice: order.avgFillPrice ?? null,
-        price: order.price ?? record.price, raw: JSON.stringify(order.raw ?? null).slice(0, 4000),
+        price: order.price ?? record.price, raw: JSON.stringify(order.raw ?? null).slice(0, 4000), slippageBps,
       },
     })
+    if (slippageBps !== null && slippageBps > EXECUTION_GUARDS.slippageAlertBps) {
+      await prisma.auditLog.create({ data: { userId, actor: 'system', action: 'SLIPPAGE ALERT', category: 'execution', detail: `${adapter.label}: ${req.side.toUpperCase()} ${req.qty} ${req.symbol} filled ${slippageBps.toFixed(1)} bps adverse to the reference ${guard.ref} (alert level ${EXECUTION_GUARDS.slippageAlertBps} bps).` } })
+    }
     await prisma.auditLog.create({
       data: {
         userId, actor: 'user', action: paper ? 'PAPER ORDER SENT' : 'LIVE ORDER SENT', category: 'execution',

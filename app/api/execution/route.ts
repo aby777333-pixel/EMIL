@@ -1,3 +1,4 @@
+import { EXECUTION_GUARDS } from '@/lib/execution/guards'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, requireAdmin } from '@/lib/auth'
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
       mode: state?.mode ?? 'observation',
       liveExecutionEnabled: liveFlag,
       caps: { paper: PAPER_MAX_NOTIONAL_USD, live: LIVE_MAX_NOTIONAL_USD },
+      guards: EXECUTION_GUARDS,
     }
     if (!venueKey) return NextResponse.json(base)
 
@@ -69,6 +71,7 @@ export async function GET(req: Request) {
       log: log.map((o) => ({
         id: o.id, symbol: o.symbol, side: o.side, orderType: o.orderType, qty: o.qty, price: o.price, notionalUsd: o.notionalUsd,
         status: o.status, filledQty: o.filledQty, avgFillPrice: o.avgFillPrice, message: o.message, venueOrderId: o.venueOrderId, createdAt: o.createdAt,
+        refPrice: o.refPrice, slippageBps: o.slippageBps, quoteLatencyMs: o.quoteLatencyMs, guardNotes: o.guardNotes,
       })),
     })
   } catch (e) {
