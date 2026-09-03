@@ -1,3 +1,4 @@
+import { decryptSecret, encryptFields } from '@/lib/secrets'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { authenticateApiKey } from '@/lib/api-key'
@@ -102,7 +103,7 @@ async function handle(req: Request, params: { path?: string[] }) {
         ok: true,
         connections: links.map((l) => ({
           providerKey: l.providerKey, status: l.status, lastCheckedAt: l.lastCheckedAt, lastError: l.lastError,
-          apiKey: mask(l.apiKey), hasApiSecret: !!l.apiSecret, hasAccessToken: !!l.accessToken, clientCode: l.clientCode,
+          apiKey: mask(decryptSecret(l.apiKey)), hasApiSecret: !!l.apiSecret, hasAccessToken: !!l.accessToken, clientCode: decryptSecret(l.clientCode), permissionTier: l.permissionTier ?? null,
         })),
       })
     }
@@ -119,11 +120,11 @@ async function handle(req: Request, params: { path?: string[] }) {
       if (Object.keys(data).length === 0) return json({ error: 'Provide at least one credential field: apiKey, apiSecret, accessToken, clientCode.' }, 400)
       const link = await prisma.userBrokerConnection.upsert({
         where: { userId_providerKey: { userId: auth.userId, providerKey } },
-        update: { ...data, status: 'configured', lastError: null },
-        create: { userId: auth.userId, providerKey, ...data },
+        update: { ...encryptFields(data), status: 'configured', lastError: null },
+        create: { userId: auth.userId, providerKey, ...encryptFields(data) },
       })
       // Verify with a lightweight read against the broker where supported.
-      const result = await testProviderConnection({ key: providerKey, baseUrl: provider.baseUrl, apiKey: link.apiKey, apiSecret: link.apiSecret, accessToken: link.accessToken, clientCode: link.clientCode })
+      const result = await testProviderConnection({ key: providerKey, baseUrl: provider.baseUrl, apiKey: decryptSecret(link.apiKey), apiSecret: decryptSecret(link.apiSecret), accessToken: decryptSecret(link.accessToken), clientCode: decryptSecret(link.clientCode) })
       await prisma.userBrokerConnection.update({
         where: { id: link.id },
         data: { status: result.ok ? 'connected' : 'error', lastCheckedAt: new Date(), lastError: result.ok ? null : result.message },

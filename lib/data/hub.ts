@@ -1,3 +1,4 @@
+import { decryptSecret } from '@/lib/secrets'
 // EMIL Data Provider Hub — server-side fetch layer.
 // RESEARCH DATA ONLY: these feeds power dashboards, news and analysis. They
 // must never drive autonomous execution (execution-quality data comes from
@@ -126,7 +127,7 @@ export const MARKET_BOARD: { symbol: string; label: string; group: string }[] = 
 
 async function tdKey(): Promise<string | null> {
   const provider = await prisma.dataProvider.findUnique({ where: { key: 'twelve_data' } })
-  return provider?.enabled && provider?.apiKey ? provider.apiKey : null
+  return provider?.enabled && provider?.apiKey ? decryptSecret(provider.apiKey) : null
 }
 
 // ---- Twelve Data credit budgeter -------------------------------------------

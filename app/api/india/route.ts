@@ -4,6 +4,7 @@ import { authOptions, requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { sessionStatus } from '@/lib/india/market-hours'
 import { testProviderConnection } from '@/lib/india/adapter'
+import { decryptRow, encryptFields } from '@/lib/secrets'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ function publicProvider(p: any) {
     isPrimaryData: p.isPrimaryData, isPrimaryExec: p.isPrimaryExec,
     hasApiKey: !!p.apiKey, hasApiSecret: !!p.apiSecret, hasAccessToken: !!p.accessToken,
     apiKeyMasked: mask(p.apiKey), clientCode: p.clientCode,
+    permissionTier: p.permissionTier ?? null, consentAt: p.consentAt ?? null,
     lastCheckedAt: p.lastCheckedAt, lastError: p.lastError, updatedAt: p.updatedAt,
   }
 }
@@ -55,11 +57,12 @@ export async function GET() {
     // Admins see the house catalog credentials; customers see the same catalog
     // overlaid with THEIR OWN broker links — never the house secrets.
     const linkByKey = new Map(userLinks.map((l) => [l.providerKey, l]))
-    const rows = providers.map((p) => {
+    const rows = providers.map((raw) => {
+      const p = decryptRow(raw)
       if (isAdmin) return publicProvider(p)
-      const mine = linkByKey.get(p.key)
+      const mine = decryptRow(linkByKey.get(p.key))
       return {
-        ...publicProvider({ ...p, apiKey: mine?.apiKey ?? null, apiSecret: mine?.apiSecret ?? null, accessToken: mine?.accessToken ?? null, clientCode: mine?.clientCode ?? null }),
+        ...publicProvider({ ...p, apiKey: mine?.apiKey ?? null, apiSecret: mine?.apiSecret ?? null, accessToken: mine?.accessToken ?? null, clientCode: mine?.clientCode ?? null, permissionTier: mine?.permissionTier ?? null, consentAt: mine?.consentAt ?? null }),
         status: mine ? mine.status : 'not_configured',
         lastCheckedAt: mine?.lastCheckedAt ?? null,
         lastError: mine?.lastError ?? null,
@@ -67,6 +70,7 @@ export async function GET() {
     })
     return NextResponse.json({
       providers: rows,
+      isAdmin,
       sessions: sessionsWithStatus,
       holidays,
       instruments,
@@ -92,32 +96,61 @@ export async function POST(req: Request) {
       for (const f of ['apiKey', 'apiSecret', 'accessToken', 'clientCode'] as const) {
         if (typeof body?.[f] === 'string' && body[f].trim() !== '') data[f] = body[f].trim()
       }
+      // Connect wizard (spec §6–7): permission tier + the mandatory API
+      // disclaimer. The tier is enforced by the order router — only TRADING
+      // links can ever send an order, whatever the key allows at the venue.
+      const tier = ['read_only', 'analysis', 'trading'].includes(body?.permissionTier) ? (body.permissionTier as string) : null
+      const consent = body?.consent && typeof body.consent === 'object' ? body.consent : null
+      const checkboxes: string[] = Array.isArray(consent?.checkboxes) ? consent.checkboxes.map(String) : []
+      if (tier) {
+        const required = ['own_key', 'no_withdrawals', 'storage', 'risk', ...(tier === 'trading' ? ['authorise_orders'] : [])]
+        if (required.some((k) => !checkboxes.includes(k))) return NextResponse.json({ error: 'Every disclaimer item must be acknowledged before linking.' }, { status: 400 })
+        data.permissionTier = tier
+        data.consentVersion = String(consent?.version ?? 'broker-api-v1')
+        data.consentAt = new Date()
+      }
+      if (Object.keys(data).length === 0) return NextResponse.json({ error: 'Enter at least one credential field.' }, { status: 400 })
+      const secured = encryptFields(data)
+      const tierNote = tier ? ` Permission tier: ${tier.replace('_', '-')}.` : ''
+      const logConsent = async (scope: string) => {
+        if (!tier) return
+        await prisma.consentLog.create({
+          data: {
+            userId, action: 'broker_connect', mode: tier, authMethod: 'checkbox', checkboxes: JSON.stringify(checkboxes),
+            detail: `${scope} linked ${provider.name} (${provider.vendor}) at the ${tier.replace('_', '-')} tier; API disclaimer ${data.consentVersion} acknowledged.`,
+          },
+        })
+      }
       if (isAdmin) {
         // Owner/house credentials live on the catalog row.
-        const updated = await prisma.indiaApiProvider.update({ where: { id: provider.id }, data: { ...data, status: 'configured', lastError: null } })
+        const updated = await prisma.indiaApiProvider.update({ where: { id: provider.id }, data: { ...secured, status: 'configured', lastError: null } })
+        await logConsent('Owner')
         await prisma.auditLog.create({
-          data: { userId, actor: 'user', action: 'INDIA API CREDENTIALS UPDATED', category: 'india_api_hub', detail: `House credentials updated for ${provider.name} (${provider.vendor}). Secrets stored server-side.` },
+          data: { userId, actor: 'user', action: 'INDIA API CREDENTIALS UPDATED', category: 'india_api_hub', detail: `House credentials updated for ${provider.name} (${provider.vendor}). Secrets stored encrypted server-side.${tierNote}` },
         })
-        return NextResponse.json({ ok: true, provider: publicProvider(updated) })
+        return NextResponse.json({ ok: true, provider: publicProvider(decryptRow(updated)) })
       }
       // Customers store their OWN broker credentials, isolated per account.
       const link = await prisma.userBrokerConnection.upsert({
         where: { userId_providerKey: { userId, providerKey: provider.key } },
-        update: { ...data, status: 'configured', lastError: null },
-        create: { userId, providerKey: provider.key, ...data },
+        update: { ...secured, status: 'configured', lastError: null },
+        create: { userId, providerKey: provider.key, ...secured },
       })
+      await logConsent('Customer')
       await prisma.auditLog.create({
-        data: { userId, actor: 'user', action: 'CUSTOMER BROKER LINKED', category: 'india_api_hub', detail: `Customer linked ${provider.name} (${provider.vendor}) to their own account. Secrets stored server-side.` },
+        data: { userId, actor: 'user', action: 'CUSTOMER BROKER LINKED', category: 'india_api_hub', detail: `Customer linked ${provider.name} (${provider.vendor}) to their own account. Secrets stored encrypted server-side.${tierNote}` },
       })
-      return NextResponse.json({ ok: true, provider: { ...publicProvider({ ...provider, apiKey: link.apiKey, apiSecret: link.apiSecret, accessToken: link.accessToken, clientCode: link.clientCode }), status: link.status, lastError: link.lastError } })
+      const mine = decryptRow(link)
+      return NextResponse.json({ ok: true, provider: { ...publicProvider({ ...provider, apiKey: mine.apiKey, apiSecret: mine.apiSecret, accessToken: mine.accessToken, clientCode: mine.clientCode, permissionTier: mine.permissionTier, consentAt: mine.consentAt }), status: link.status, lastError: link.lastError } })
     }
 
     if (body?.type === 'test_connection') {
       if (!provider) return NextResponse.json({ error: 'Provider not found' }, { status: 404 })
       const link = isAdmin ? null : await prisma.userBrokerConnection.findUnique({ where: { userId_providerKey: { userId, providerKey: provider.key } } })
+      const plainLink = decryptRow(link)
       const creds = isAdmin
-        ? provider
-        : { key: provider.key, baseUrl: provider.baseUrl, apiKey: link?.apiKey, apiSecret: link?.apiSecret, accessToken: link?.accessToken, clientCode: link?.clientCode }
+        ? decryptRow(provider)
+        : { key: provider.key, baseUrl: provider.baseUrl, apiKey: plainLink?.apiKey, apiSecret: plainLink?.apiSecret, accessToken: plainLink?.accessToken, clientCode: plainLink?.clientCode }
       const result = await testProviderConnection(creds)
       let statusRow: any
       if (isAdmin) {
@@ -129,13 +162,14 @@ export async function POST(req: Request) {
             lastError: result.ok ? null : result.message,
           },
         })
-        statusRow = publicProvider(statusRow)
+        statusRow = publicProvider(decryptRow(statusRow))
       } else if (link) {
         const updatedLink = await prisma.userBrokerConnection.update({
           where: { id: link.id },
           data: { status: result.ok ? 'connected' : 'error', lastCheckedAt: new Date(), lastError: result.ok ? null : result.message },
         })
-        statusRow = { ...publicProvider({ ...provider, apiKey: updatedLink.apiKey, apiSecret: updatedLink.apiSecret, accessToken: updatedLink.accessToken, clientCode: updatedLink.clientCode }), status: updatedLink.status, lastError: updatedLink.lastError }
+        const pl = decryptRow(updatedLink)
+        statusRow = { ...publicProvider({ ...provider, apiKey: pl.apiKey, apiSecret: pl.apiSecret, accessToken: pl.accessToken, clientCode: pl.clientCode, permissionTier: pl.permissionTier, consentAt: pl.consentAt }), status: updatedLink.status, lastError: updatedLink.lastError }
       } else {
         statusRow = { ...publicProvider({ ...provider, apiKey: null, apiSecret: null, accessToken: null, clientCode: null }), status: 'not_configured' }
       }
@@ -155,7 +189,7 @@ export async function POST(req: Request) {
       await prisma.auditLog.create({
         data: { userId, actor: 'user', action: 'INDIA API PRIMARY PROVIDER SET', category: 'india_api_hub', detail: `${provider.name} set as primary ${role === 'exec' ? 'execution' : 'market-data'} provider for NSE/BSE/MCX.` },
       })
-      return NextResponse.json({ ok: true, provider: publicProvider(updated) })
+      return NextResponse.json({ ok: true, provider: publicProvider(decryptRow(updated)) })
     }
 
     if (body?.type === 'clear_credentials') {
@@ -169,12 +203,12 @@ export async function POST(req: Request) {
       }
       const updated = await prisma.indiaApiProvider.update({
         where: { id: provider.id },
-        data: { apiKey: null, apiSecret: null, accessToken: null, clientCode: null, status: 'not_configured', lastError: null, isPrimaryData: false, isPrimaryExec: false },
+        data: { apiKey: null, apiSecret: null, accessToken: null, clientCode: null, permissionTier: null, consentVersion: null, consentAt: null, status: 'not_configured', lastError: null, isPrimaryData: false, isPrimaryExec: false },
       })
       await prisma.auditLog.create({
         data: { userId, actor: 'user', action: 'INDIA API CREDENTIALS CLEARED', category: 'india_api_hub', detail: `House credentials removed for ${provider.name}.` },
       })
-      return NextResponse.json({ ok: true, provider: publicProvider(updated) })
+      return NextResponse.json({ ok: true, provider: publicProvider(decryptRow(updated)) })
     }
 
     return NextResponse.json({ error: 'Unknown request' }, { status: 400 })

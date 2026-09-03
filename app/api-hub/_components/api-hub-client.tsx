@@ -10,6 +10,8 @@ import {
 import toast from 'react-hot-toast'
 import LiveFeedPanel from './live-feed'
 import EmilPlatformCard from './emil-platform-card'
+import ConnectWizard from './connect-wizard'
+import { CRED_FIELDS, TIERS } from './cred-fields'
 
 const STATUS_STYLES: Record<string, string> = {
   connected: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -28,35 +30,6 @@ const LIVE_STYLES: Record<string, string> = {
   holiday: 'text-red-400',
 }
 
-const CRED_FIELDS: Record<string, { key: string; label: string; secret?: boolean }[]> = {
-  api_key: [{ key: 'apiKey', label: 'API key', secret: true }],
-  api_key_secret: [
-    { key: 'apiKey', label: 'API key', secret: true },
-    { key: 'apiSecret', label: 'API secret', secret: true },
-    { key: 'clientCode', label: 'Passphrase / client id (if required)' },
-  ],
-  mt_account: [
-    { key: 'clientCode', label: 'Account number' },
-    { key: 'apiSecret', label: 'Account password', secret: true },
-    { key: 'apiKey', label: 'Server name (e.g. ICMarketsSC-Live04)' },
-  ],
-  api_key_secret_daily_token: [
-    { key: 'apiKey', label: 'API key', secret: true },
-    { key: 'apiSecret', label: 'API secret', secret: true },
-    { key: 'accessToken', label: 'Daily access / session token', secret: true },
-  ],
-  oauth2: [
-    { key: 'apiKey', label: 'App ID / API key', secret: true },
-    { key: 'apiSecret', label: 'App secret', secret: true },
-    { key: 'accessToken', label: 'Access token (daily)', secret: true },
-  ],
-  totp_login: [
-    { key: 'apiKey', label: 'API key', secret: true },
-    { key: 'clientCode', label: 'Client code' },
-    { key: 'accessToken', label: 'JWT token (from TOTP login)', secret: true },
-  ],
-  static_token: [{ key: 'accessToken', label: 'Access token (30-day)', secret: true }],
-}
 
 // Extra reference links (testnet portal, guides, test funds) rendered next to
 // the Docs link. Skips anything equal to docsUrl so a link never shows twice.
@@ -133,6 +106,12 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function TierBadge({ tier }: { tier?: string | null }) {
+  const t = TIERS.find((x) => x.key === tier)
+  if (!t) return null
+  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${t.tone}`}>{t.short}</span>
+}
+
 function Chips({ csv, tone = 'text-slate-300 bg-secondary/70' }: { csv?: string | null; tone?: string }) {
   if (!csv) return null
   return (
@@ -151,6 +130,7 @@ export default function ApiHubClient() {
   const [busyKey, setBusyKey] = useState('')
   const [drafts, setDrafts] = useState<Record<string, Record<string, string>>>({})
   const [openForm, setOpenForm] = useState('')
+  const [wizard, setWizard] = useState<any>(null)
   const [previewSel, setPreviewSel] = useState<{ provider: string; fn: string } | null>(null)
   const [preview, setPreview] = useState<any>(null)
   const [previewBusy, setPreviewBusy] = useState(false)
@@ -509,7 +489,10 @@ export default function ApiHubClient() {
                     <div className="text-sm font-semibold text-white">{p?.name}</div>
                     <div className="text-[11px] text-slate-500">{p?.vendor}</div>
                   </div>
-                  <StatusBadge status={p?.status} />
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge status={p?.status} />
+                    <TierBadge tier={p?.permissionTier} />
+                  </div>
                 </div>
                 <Chips csv={p?.exchanges} tone="text-cyan-300 bg-cyan-500/10" />
                 <div className="text-[11px] text-slate-500 line-clamp-2">{p?.authNote}</div>
@@ -537,9 +520,14 @@ export default function ApiHubClient() {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-1.5 mt-auto pt-1">
-                    <button onClick={() => setOpenForm(p?.key)} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-500/50 flex items-center gap-1">
-                      <KeyRound className="h-3 w-3" /> {p?.hasApiKey || p?.hasAccessToken ? 'Update keys' : 'Add keys'}
+                    <button onClick={() => setWizard(p)} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-500/50 flex items-center gap-1">
+                      <KeyRound className="h-3 w-3" /> {p?.hasApiKey || p?.hasAccessToken ? 'Reconnect' : 'Connect'}
                     </button>
+                    {p?.permissionTier === 'trading' && /_(testnet|sandbox)$/.test(p?.key ?? '') && (p?.hasApiKey || p?.hasAccessToken) ? (
+                      <a href={`/paper?venue=${p?.key}`} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200 hover:border-amber-400 flex items-center gap-1">
+                        <Activity className="h-3 w-3" /> Paper desk
+                      </a>
+                    ) : null}
                     <button onClick={() => post({ type: 'test_connection', key: p?.key }, 'Connected.')} disabled={busyKey !== ''} className="rounded-md border border-border bg-secondary/60 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-500/50 flex items-center gap-1">
                       <Activity className="h-3 w-3" /> Test
                     </button>
@@ -568,6 +556,8 @@ export default function ApiHubClient() {
           )
         })}
       </Panel>
+
+      {wizard ? <ConnectWizard provider={wizard} isAdmin={!!data?.isAdmin} onClose={() => setWizard(null)} onSaved={() => load()} /> : null}
 
       {/* Instruments */}
       <Panel title="Instrument Catalog — India & US (Normalized)" icon={CandlestickChart} accent="violet">

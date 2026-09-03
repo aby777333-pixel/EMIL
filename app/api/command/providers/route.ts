@@ -1,3 +1,4 @@
+import { decryptSecret, encryptSecret } from '@/lib/secrets'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions, requireAdmin } from '@/lib/auth'
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const mask = (v?: string | null) => (v ? `${v.slice(0, 3)}••••${v.slice(-2)}` : null)
 const publicRow = (p: any) => ({
   id: p.id, key: p.key, name: p.name, category: p.category, baseUrl: p.baseUrl, docsUrl: p.docsUrl,
-  authType: p.authType, hasApiKey: !!p.apiKey, apiKeyMasked: mask(p.apiKey), enabled: p.enabled,
+  authType: p.authType, hasApiKey: !!p.apiKey, apiKeyMasked: mask(decryptSecret(p.apiKey)), enabled: p.enabled,
   priority: p.priority, fallbackKey: p.fallbackKey, license: p.license, freshness: p.freshness,
   coverage: p.coverage, status: p.status, lastCheckedAt: p.lastCheckedAt, lastLatencyMs: p.lastLatencyMs, lastError: p.lastError,
 })
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
     if (body?.type === 'save_key') {
       const apiKey = String(body?.apiKey ?? '').trim()
       if (!apiKey) return NextResponse.json({ error: 'API key required' }, { status: 400 })
-      const updated = await prisma.dataProvider.update({ where: { id: provider.id }, data: { apiKey, status: 'unknown', lastError: null } })
+      const updated = await prisma.dataProvider.update({ where: { id: provider.id }, data: { apiKey: encryptSecret(apiKey), status: 'unknown', lastError: null } })
       await audit('DATA PROVIDER KEY SAVED', `${provider.name}: API key saved server-side.`)
       return NextResponse.json({ ok: true, provider: publicRow(updated) })
     }
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
     }
 
     if (body?.type === 'test') {
-      const result = await testProvider(provider.key, provider.apiKey)
+      const result = await testProvider(provider.key, decryptSecret(provider.apiKey))
       const updated = await prisma.dataProvider.update({
         where: { id: provider.id },
         data: {

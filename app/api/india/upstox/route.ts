@@ -1,3 +1,4 @@
+import { decryptSecret } from '@/lib/secrets'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
       prisma.indiaApiProvider.findUnique({ where: { key: 'upstox' } }),
       prisma.userBrokerConnection.findUnique({ where: { userId_providerKey: { userId, providerKey: 'upstox' } } }).catch(() => null),
     ])
-    const accessToken = userLink?.accessToken ?? provider?.accessToken
+    const accessToken = decryptSecret(userLink?.accessToken ?? provider?.accessToken)
     if (!accessToken || !provider) {
       return NextResponse.json({ error: 'not_configured', message: 'Add your Upstox daily access token in the Markets & API Hub first (tokens expire 03:30 IST).' }, { status: 409 })
     }

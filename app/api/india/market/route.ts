@@ -1,3 +1,4 @@
+import { decryptSecret } from '@/lib/secrets'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -76,7 +77,7 @@ export async function GET(req: Request) {
     let res: Response
     try {
       res = await fetch(target.toString(), {
-        headers: { 'X-Api-Key': provider.apiKey, Accept: 'application/json' },
+        headers: { 'X-Api-Key': decryptSecret(provider.apiKey) as string, Accept: 'application/json' },
         signal: ctrl.signal,
         cache: 'no-store',
       })

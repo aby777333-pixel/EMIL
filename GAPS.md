@@ -10,9 +10,9 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 |---|---|---|
 | ARM/DISARM redesign, always-visible DISARM (§2–5) | ROUND 1 | Armed state now shows "EMIL ARMED — LIVE TRADING ENABLED" + a permanent top-bar DISARM (stop-automation semantics, distinct from disconnect); acknowledgements + press-and-hold retained; EMERGENCY STOP already permanent. |
 | Operating modes (§3) | EXISTS | 9 modes incl. research-only (observation), advisory, confirmation, autonomous, emergency. |
-| Broker permission wizard + mandatory API disclaimer (§6–7) | PARTIAL | Per-customer credential isolation and consent logging exist; a dedicated connect-wizard modal with read/analysis/trading permission tiers is still to build. |
+| Broker permission wizard + mandatory API disclaimer (§6–7) | ROUND 4 | Connect wizard on every broker card: permission tier (Read-only / Analysis / Trading) → mandatory disclaimer (4 items, 5 for Trading; every acknowledgement written to consent_logs with version `broker-api-v1`) → credentials with provider guide + links → save & connection test. Tier stored on the link (`permissionTier`) and enforced server-side: only TRADING links reach the order router. |
 | Global API Hub (§8–10) | EXISTS | 138 providers across 14 markets/regions (incl. live + testnet rows for Deribit, Delta Exchange India and Gemini); color-coded collapsible sections per region (India/Forex/US/UK/Europe/APAC/Canada/MENA/Africa/LatAm/Crypto) with provider + linked counts; region dropdown (selected/all/per-region); brokers without a public API honestly tagged `outreach_target` for BD proposals; per-customer broker links; connection dashboard fields mostly present. |
-| API security (§11) | PARTIAL | Secrets server-side, masked, audited; **still missing: encryption at rest, token rotation, 2FA, rate limiting.** |
+| API security (§11) | ROUND 4 (partial) | Secrets server-side, masked, audited, and now **encrypted at rest** (AES-256-GCM envelope, `EMIL_SECRETS_KEY`, `lib/secrets.ts`; legacy plaintext read transparently; `scripts/encrypt-secrets.ts` re-encrypts existing rows). Still missing: token rotation, 2FA, rate limiting. |
 | Research terminal / global market dashboard (§12–13) | ROUND 1 (v1) | /markets: global market clock, indices/metals/energy board (LIVE with the owner's Twelve Data key, 8-symbol free-tier budget, 10-min server cache), FX reference, crypto, personal watchlist. Country terminals, heatmaps, breadth: MISSING. |
 | Professional charting (§14, §253) | ROUND 2 | /charts on TradingView Lightweight Charts: candles/line/area, 5m–1W intervals, SMA20/50 + EMA20 computed in-app (§252), volume, quick picks + any symbol, deep link ?symbol=. Drawing tools, saved layouts, compare: MISSING. |
 | EMIL AI Analyst (§15) | PARTIAL | Ask EMIL answers from the attributed knowledge base with citations; not yet wired to live market/portfolio context. |
@@ -34,7 +34,7 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 | Status bar & data timestamps (§55–56, §270) | ROUND 1 (v1) | Top status bar existed; all new data boards carry source + freshness + fetched-at labels. |
 | Data provider architecture (§57, §230–231, §276) | ROUND 1 | **Data Provider Hub shipped**: 23 free/open-first providers (FRED, World Bank, IMF, OECD, BIS, Eurostat, SEC EDGAR, EIA, USDA, FAOSTAT, UN Comtrade, GDELT, Open-Meteo, CoinGecko, Frankfurter, Stooq, Alpha Vantage, Twelve Data, Finnhub, FMP, Nasdaq DL, OpenFIGI, GLEIF) with license notes, freshness, priority, fallback, health tests and admin key management. |
 | AI explainability / confidence (§58–59) | EXISTS | Agent votes, reasons for/against, confidence with "model assessment" framing. |
-| Execution protection / idempotency (§61–62) | PARTIAL | Idempotency keys on orders; slippage/spread/latency guards are schema-level, not enforced (no live execution yet). |
+| Execution protection / idempotency (§61–62) | ROUND 4 (paper) | **First real execution loop**: `lib/execution/*` venue adapters (Deribit, Gemini, Delta) behind a guarded router — trading-tier link required, paper venues always allowed, live venues need `live_crypto_execution` + ARM + owner, per-order notional cap, every order journaled in `venue_orders` + audit. `/paper` Paper Trading Desk: instruments, ticker, ticket, balances, positions, open orders (cancel), journal. Slippage/latency guards and agent-driven order flow: still to build. |
 | Audit log (§64) | EXISTS | |
 | Watchlists (§66) | ROUND 2 | Per-user watchlist on /markets with cached delayed quotes, add/remove, chart deep links; capped 8 symbols on the free data plan (stated honestly). Multiple named lists, alerts, sharing: MISSING. |
 | Correlation engine (§97–98) | ROUND 2 | /correlation: any pair, 3M–2Y, Pearson + 30-session rolling chart + beta + annualized vols + current-vs-historical regime detection (stable/strengthening/weakening/inverting), CALCULATED labeling. Matrices, lead/lag, cointegration: MISSING. |
@@ -59,6 +59,12 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 - Stooq's admin health test now reports "retired" instead of a fake failure.
 - Command palette covers all Command Center sections (connections, flags,
   audit added) and the Alert Center.
+
+## Round 4 (2026-09-03) — Paper execution, connect wizard, encryption at rest
+
+- Paper Trading Desk (`/paper`, flag `paper_trading_desk` ON) on Deribit Testnet / Gemini Sandbox / Delta Demo; live rows gated by `live_crypto_execution` (OFF).
+- Broker connect wizard with Read-only / Analysis / Trading tiers + mandatory disclaimer; consent logged.
+- Credentials encrypted at rest with `EMIL_SECRETS_KEY`; `scripts/encrypt-secrets.ts` migrates existing rows.
 
 ## Recommended next rounds
 

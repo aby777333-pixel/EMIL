@@ -159,6 +159,9 @@ model UserBrokerConnection {
   apiSecret     String?
   accessToken   String?
   clientCode    String?
+  permissionTier String?  // read_only | analysis | trading — connect wizard (spec §6–7)
+  consentVersion String?
+  consentAt     DateTime?
   status        String    @default("configured") // configured | connected | error
   lastCheckedAt DateTime?
   lastError     String?
@@ -307,6 +310,9 @@ model IndiaApiProvider {
   accessToken    String?
   tokenExpiresAt DateTime?
   clientCode     String?   // Angel One client code / Dhan client id etc.
+  permissionTier String?   // read_only | analysis | trading — connect wizard (spec §6–7)
+  consentVersion String?   // API disclaimer version acknowledged
+  consentAt      DateTime?
   lastCheckedAt  DateTime?
   lastError      String?
   createdAt      DateTime  @default(now())
@@ -1014,4 +1020,34 @@ model FeatureFlag {
   updatedAt   DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+// ============ VENUE EXECUTION (paper + live) ============
+
+// Every order EMIL sends to an exchange venue, paper or live, journaled
+// before the venue call and updated after it. Separate from trade_orders
+// (the agent pipeline's simulated orders) on purpose: paper ≠ live ≠ demo.
+model VenueOrder {
+  id            String   @id @default(cuid())
+  userId        String
+  providerKey   String   // india_api_providers.key (deribit_testnet, gemini_sandbox, …)
+  paper         Boolean  @default(true)
+  symbol        String
+  side          String   // buy | sell
+  orderType     String   // market | limit
+  qty           Float
+  price         Float?
+  notionalUsd   Float?
+  venueOrderId  String?
+  status        String   @default("submitted") // submitted | open | partially_filled | filled | cancelled | rejected | error
+  filledQty     Float    @default(0)
+  avgFillPrice  Float?
+  message       String?
+  raw           String?
+  clientOrderId String   @unique @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, providerKey, createdAt])
+  @@map("venue_orders")
 }
