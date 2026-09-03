@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { watchlistQuotes } from '@/lib/data/hub'
 import { evaluateAlerts } from '@/lib/alerts'
+import { toTwelveData } from '@/lib/instruments/catalog'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,7 +83,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
     const type = String(body?.type ?? '')
-    const symbol = String(body?.symbol ?? '').trim().toUpperCase().slice(0, 20)
+    // Any spelling resolves through the instrument master to the research symbol the quotes use.
+    const rawSymbol = String(body?.symbol ?? '').trim().slice(0, 24)
+    const resolved = rawSymbol ? toTwelveData(rawSymbol) : null
+    const symbol = (resolved?.symbol ?? '').toUpperCase().slice(0, 24)
+    const label = resolved?.def?.name ?? null
     const name = String(body?.name ?? '').trim().slice(0, 40)
     const lists = await ensureLists(userId)
     const pick = (id?: string) => (id ? lists.find((l) => l.id === id) : lists[0])
@@ -96,7 +101,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `You track ${symbols.length} distinct symbols — the cap is ${SYMBOL_CAP} on the current data plan (Twelve Data free tier: 8 credits/min). Remove one first, or add a symbol you already track to another list.` }, { status: 409 })
       }
       const exists = await prisma.watchlistItem.findFirst({ where: { watchlistId: list.id, symbol } })
-      if (!exists) await prisma.watchlistItem.create({ data: { userId, symbol, watchlistId: list.id } })
+      if (!exists) await prisma.watchlistItem.create({ data: { userId, symbol, label, watchlistId: list.id } })
       return NextResponse.json({ ok: true })
     }
 

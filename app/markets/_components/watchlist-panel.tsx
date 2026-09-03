@@ -20,6 +20,7 @@ export default function WatchlistPanel() {
   const [active, setActive] = useState<string>('')
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [suggest, setSuggest] = useState<{ key: string; name: string; tdSymbol: string | null; exchange: string }[]>([])
 
   const load = useCallback(async (retried = false) => {
     try {
@@ -65,11 +66,25 @@ export default function WatchlistPanel() {
     }
   }, [busy, load])
 
-  const add = async () => {
-    const symbol = input.trim().toUpperCase()
+  // Autocomplete from the instrument master (debounced; symbols only, no quotes spent).
+  useEffect(() => {
+    const q = input.trim()
+    if (q.length < 1) { setSuggest([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/instruments?q=${encodeURIComponent(q)}&limit=6`, { cache: 'no-store' })
+        const d = await res.json()
+        setSuggest(res.ok ? (d?.results ?? []) : [])
+      } catch { setSuggest([]) }
+    }, 220)
+    return () => clearTimeout(t)
+  }, [input])
+
+  const add = async (pick?: string) => {
+    const symbol = (pick ?? input).trim()
     if (!symbol || !list) return
     const d = await post({ type: 'add', symbol, listId: list.id })
-    if (d) setInput('')
+    if (d) { setInput(''); setSuggest([]) }
   }
   const createList = async () => {
     const name = window.prompt('Name the new list', 'Ideas')
@@ -125,9 +140,22 @@ export default function WatchlistPanel() {
             ) : null}
           </div>
 
-          <form onSubmit={(e) => { e.preventDefault(); add() }} className="flex gap-1.5 mb-2.5">
-            <input value={input} onChange={(e) => setInput(e.target.value)} className="flex-1 rounded-md bg-background border border-border px-2.5 py-1.5 text-xs text-white num" placeholder={`Add to ${list?.name ?? 'list'} — AAPL, EUR/USD, BTC/USD…`} />
-            <button type="submit" disabled={busy} className="rounded-md bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold px-3 flex items-center gap-1"><Plus className="h-3.5 w-3.5" /> ADD</button>
+          <form onSubmit={(e) => { e.preventDefault(); add() }} className="relative mb-2.5">
+            <div className="flex gap-1.5">
+              <input value={input} onChange={(e) => setInput(e.target.value)} className="flex-1 rounded-md bg-background border border-border px-2.5 py-1.5 text-xs text-white num" placeholder={`Add to ${list?.name ?? 'list'} — gold, EURUSD, SPX, nifty, AAPL…`} />
+              <button type="submit" disabled={busy} className="rounded-md bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold px-3 flex items-center gap-1"><Plus className="h-3.5 w-3.5" /> ADD</button>
+            </div>
+            {suggest.length > 0 && input.trim() ? (
+              <div className="absolute left-0 right-14 top-full z-20 mt-1 rounded-md border border-border bg-[#0b1220] shadow-xl">
+                {suggest.map((sg) => (
+                  <button key={sg.key} type="button" onClick={() => add(sg.tdSymbol ?? sg.key)} className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left hover:bg-amber-500/10">
+                    <span className="num text-[11px] font-semibold text-white">{sg.key}</span>
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-slate-400">{sg.name}</span>
+                    <span className="text-[9px] text-slate-500">{sg.exchange}{sg.tdSymbol ? '' : ' · no research feed yet'}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </form>
 
           {!list || list.items.length === 0 ? (

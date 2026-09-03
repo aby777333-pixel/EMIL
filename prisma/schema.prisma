@@ -1130,3 +1130,35 @@ model DemoEnvironment {
 
   @@map("demo_environment")
 }
+
+// Instrument master (spec §150–151) — synced from lib/instruments/catalog.ts.
+model InstrumentMaster {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  name            String
+  assetClass      String
+  market          String
+  exchange        String
+  country         String
+  currency        String
+  base            String?
+  quote           String?
+  tdSymbol        String?
+  tdProxy         Boolean  @default(false)
+  tvSymbol        String?
+  emilTradeSymbol String?
+  deribitSymbol   String?
+  geminiSymbol    String?
+  deltaSymbol     String?
+  aliases         String   @default("")
+  lotSize         Int?
+  tickSize        Float?
+  dataStatus      String   @default("live")
+  tradable        Boolean  @default(false)
+  catalogVersion  Int      @default(1)
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([market])
+  @@index([assetClass])
+  @@map("instrument_master")
+}

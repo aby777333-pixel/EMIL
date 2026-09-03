@@ -1,3 +1,4 @@
+import { toTwelveData } from '@/lib/instruments/catalog'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -48,15 +49,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, ...(await newsFeed(category, 30)) })
     }
     if (fn === 'time_series') {
-      const symbol = (url.searchParams.get('symbol') ?? '').slice(0, 20)
-      if (!symbol) return NextResponse.json({ error: 'symbol parameter required' }, { status: 400 })
+      const rawSymbol = (url.searchParams.get('symbol') ?? '').slice(0, 24)
+      if (!rawSymbol) return NextResponse.json({ error: 'symbol parameter required' }, { status: 400 })
+      // Any spelling (EURUSD, EUR/USD, gold, SPX…) resolves through the instrument master.
+      const symbol = toTwelveData(rawSymbol).symbol
       const interval = url.searchParams.get('interval') ?? '1day'
       const outputsize = parseInt(url.searchParams.get('outputsize') ?? '90', 10)
       return NextResponse.json({ ok: true, ...(await timeSeries(symbol, interval, outputsize)) })
     }
     if (fn === 'correlation') {
-      const a = (url.searchParams.get('a') ?? '').slice(0, 20)
-      const b = (url.searchParams.get('b') ?? '').slice(0, 20)
+      const a = toTwelveData((url.searchParams.get('a') ?? '').slice(0, 24)).symbol
+      const b = toTwelveData((url.searchParams.get('b') ?? '').slice(0, 24)).symbol
       if (!a || !b) return NextResponse.json({ error: 'a and b symbol parameters required' }, { status: 400 })
       const bars = parseInt(url.searchParams.get('bars') ?? '180', 10)
       return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars)) })

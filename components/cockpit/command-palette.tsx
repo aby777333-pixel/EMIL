@@ -57,7 +57,23 @@ const COMMAND: { href: string; label: string; icon: any }[] = [
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [hits, setHits] = useState<{ key: string; name: string; tdSymbol: string | null; exchange: string; tradable: boolean; aliases: string }[]>([])
   const router = useRouter()
+
+  // Instrument-level search (spec §40–42): the master resolves any spelling.
+  useEffect(() => {
+    const query = q.trim()
+    if (!open || query.length < 2) { setHits([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/instruments?q=${encodeURIComponent(query)}&limit=8`, { cache: 'no-store' })
+        const d = await res.json()
+        setHits(res.ok ? (d?.results ?? []) : [])
+      } catch { setHits([]) }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [q, open])
   const { data: sessionData } = useSession()
   const isAdmin = (sessionData?.user as any)?.role === 'admin'
 
@@ -79,9 +95,21 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Jump to any EMIL module… (Ctrl+K)" />
+      <CommandInput value={q} onValueChange={setQ} placeholder="Jump to any module or instrument — gold, EURUSD, SPX, nifty… (Ctrl+K)" />
       <CommandList>
         <CommandEmpty>Nothing matches.</CommandEmpty>
+        {hits.length > 0 ? (
+          <CommandGroup heading="Instruments">
+            {hits.map((h) => (
+              <CommandItem key={h.key} value={`${h.key} ${h.name} ${h.aliases} ${q}`} onSelect={() => go(h.tdSymbol ? `/charts?symbol=${encodeURIComponent(h.tdSymbol)}` : `/instruments`)}>
+                <CandlestickChart className="mr-2 h-4 w-4 text-emerald-400" />
+                <span className="num font-semibold">{h.key}</span>
+                <span className="ml-2 text-[11px] text-slate-400 truncate">{h.name}</span>
+                <span className="ml-auto text-[10px] text-slate-500">{h.exchange}{h.tradable ? ' · EMIL Trade' : ''}{h.tdSymbol ? '' : ' · no feed yet'}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
         <CommandGroup heading="Cockpit">
           {COCKPIT.map((c) => (
             <CommandItem key={c.href} value={`${c.label} ${c.hint ?? ''}`} onSelect={() => go(c.href)}>
