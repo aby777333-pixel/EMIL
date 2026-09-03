@@ -20,8 +20,8 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 | Economic calendar (§18) | ROUND 5 | /calendar: this week + next from the free Forex Factory JSON feed (cached 15 min), impact/currency filters, actual/forecast/previous, local times. No key needed. |
 | Central bank monitor (§19) | ROUND 5 | /calendar top panel: 10 banks — current rate derived from the scheduled decision events (never guessed), next decision + forecast, last release, related speeches/minutes; FRED series (Fed/ECB/BoE/BoJ) added automatically once the FRED key is set. |
 | Company intelligence / screeners (§21–23) | MISSING | Requires keyed providers (FMP/Finnhub/Alpha Vantage) — rows seeded, keys pending. |
-| Portfolio intelligence & AI (§28–29) | PARTIAL | Capital/positions exist for the demo account; multi-broker consolidation, exposure map, scenarios: MISSING. |
-| Risk center & circuit breakers (§30–31) | PARTIAL | Risk profile, limits, guardian, emergency events exist; automatic circuit-breaker enforcement on live data conditions: MISSING. |
+| Portfolio intelligence & AI (§28–29) | ROUND 10 | **/portfolio**: the EMIL account + every venue linked with an API key (read-only tier is enough) consolidated — balances in approx USD, positions normalised through the instrument master, exposure by asset class / symbol / venue, gross/net/leverage/concentration, linear shock table (±1/3/5%). Cached 60 s. Portfolio AI commentary: MISSING. |
+| Risk center & circuit breakers (§30–31) | ROUND 10 | **Circuit breakers live**: daily/weekly loss, drawdown from HWM, margin utilisation, open-position cap, consecutive losses, ±30 min high-impact news window, broker link, market-data health — evaluated on every `/api/state` read (memo 45 s) and shown on Risk Management. Disarm-class trips stop automation (armed → false, emergency event `circuit_breaker`, audit, admin notification); positions untouched. Enforcement gated by flag `circuit_breakers` (ON). |
 | Strategy Center / Lab / lifecycle (§32–34, §203) | ROUND 5 | Blueprint pipeline with versioning + estimated-data lab, and now a **real-history Backtest Engine** (/backtest, `lib/backtest`): Deribit + Gemini free candles, Twelve Data when keyed; SMA cross / Donchian breakout / RSI reversion; next-open fills, fees + slippage, stop/target, long/short; honest metrics + pass/weak/fail rule; journals into lab_runs as dataMode "historical" and stamps the blueprint metrics. Walk-forward / Monte Carlo on real data: still to build. |
 | Trade journal & performance analytics (§35–36) | ROUND 5 | /journal: entries from Paper Desk fills and agent trade orders (one click) or manual; setup, tags, mistakes, exit/P&L; tag win-rates + most common mistakes; **AI post-trade review** grades the PROCESS (A–F, right/wrong, recurring patterns across history, rules for next time, risk flag). |
 | Alerts / notification center (§37, §65) | ROUND 3 + ROUND 5 delivery | **Round 5:** Telegram (bot + one-time link code, no webhook) and email (Resend) delivery, opt-in per user in Settings → Alert Delivery; fan-out from the same evaluator. | /alerts + top-bar bell: price alerts on watchlist symbols (evaluated against the same cached delayed quotes — zero extra credits), race-safe triggering, in-app notification center with unread counts. Delivery is in-app only (stated honestly); email/push/Telegram: MISSING. Behind the `alerts_center` flag. |
@@ -90,6 +90,10 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 ## Round 9 (2026-09-03 night) — Morning Brief + news impact scoring
 
 - `lib/brief.ts` + `/api/brief` + dashboard card; `lib/news-impact.ts` + `score=1` on the news feed + chips/filter on /news. Both behind ON flags, both labeled model assessments, both cached in research_cache so LLM cost is bounded (≤1 brief per user per 6h; ≤1 scoring call per distinct headline batch per 30 min).
+
+## Round 10 (2026-09-03 night) — Portfolio & Exposure + circuit breakers
+
+- `lib/portfolio.ts` (+ `resolveVenueForRead` in the execution router), `/api/portfolio`, `/portfolio` page; `lib/breakers.ts`, `/api/breakers`, Risk page panel; state route enforces before returning.
 
 ## Recommended next rounds
 

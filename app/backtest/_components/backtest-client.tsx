@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Panel, LoadingPanel, Stat } from '@/components/cockpit/panel'
 import { FlaskConical, Play, History, LineChart, ListOrdered } from 'lucide-react'
+import { WalkForwardPanel, MonteCarloPanel } from './robustness-panels'
 
 const fmt = (n?: number | null, d = 2) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: d }))
 const VERDICT: Record<string, string> = { pass: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10', weak: 'text-amber-300 border-amber-500/40 bg-amber-500/10', fail: 'text-red-300 border-red-500/40 bg-red-500/10' }
@@ -46,6 +47,7 @@ export default function BacktestClient() {
   const [blueprintId, setBlueprintId] = useState(params.get('blueprint') ?? '')
   const [result, setResult] = useState<any>(null)
   const [busy, setBusy] = useState(false)
+  const [robust, setRobust] = useState(true)
 
   const load = useCallback(async () => {
     const res = await fetch('/api/backtest')
@@ -69,7 +71,7 @@ export default function BacktestClient() {
     try {
       const res = await fetch('/api/backtest', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, symbol, interval, bars: Number(bars), strategy, params: Object.fromEntries(Object.entries(p).map(([k, v]) => [k, Number(v)])), allowShort, stopLossPct: sl ? Number(sl) : null, takeProfitPct: tp ? Number(tp) : null, feeBps: Number(fee), slippageBps: Number(slip), blueprintId: blueprintId || null }),
+        body: JSON.stringify({ source, symbol, interval, bars: Number(bars), strategy, params: Object.fromEntries(Object.entries(p).map(([k, v]) => [k, Number(v)])), allowShort, stopLossPct: sl ? Number(sl) : null, takeProfitPct: tp ? Number(tp) : null, feeBps: Number(fee), slippageBps: Number(slip), blueprintId: blueprintId || null, robustness: robust, folds: 4, mcRuns: 500 }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { toast.error(d?.error ?? 'Backtest failed'); return }
@@ -129,7 +131,8 @@ export default function BacktestClient() {
                 {(meta.blueprints ?? []).map((b: any) => <option key={b.id} value={b.id}>{b.code} v{b.version} · {b.name}</option>)}
               </select>
             </label>
-            <button onClick={run} disabled={busy || !symbol} className="w-full rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"><Play className="h-4 w-4" /> {busy ? 'Running…' : 'Run backtest'}</button>
+            <label className="flex items-center gap-2 text-[11px] text-slate-300"><input type="checkbox" checked={robust} onChange={(e) => setRobust(e.target.checked)} className="accent-amber-500" /> Robustness: walk-forward (4 folds, re-tuned) + Monte Carlo (500 paths)</label>
+            <button onClick={run} disabled={busy || !symbol} className="w-full rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-4 py-2 text-sm font-bold text-white flex items-center justify-center gap-2"><Play className="h-4 w-4" /> {busy ? 'Running…' : robust ? 'Run backtest + robustness' : 'Run backtest'}</button>
           </div>
         </div>
       </Panel>
@@ -154,6 +157,8 @@ export default function BacktestClient() {
           <Panel title="Equity curve" icon={LineChart} accent="emerald">
             <EquityChart points={result.equity ?? []} initial={result.cfg?.initialCapital ?? 10000} />
           </Panel>
+          <WalkForwardPanel wf={result.robustness?.walkForward} />
+          <MonteCarloPanel mc={result.robustness?.monteCarlo} />
           <Panel title={`Trades (last ${(result.trades ?? []).length})`} icon={ListOrdered} accent="cyan">
             <div className="overflow-x-auto max-h-72 overflow-y-auto">
               <table className="w-full text-[11px]">

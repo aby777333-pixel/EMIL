@@ -99,12 +99,15 @@ export async function evaluateBreakers(opts: { enforce?: boolean; force?: boolea
   // 9. Market-data health (Twelve Data primary + open feeds)
   const stale = (d: { lastCheckedAt: Date | null }) => !d.lastCheckedAt || now - d.lastCheckedAt.getTime() > 15 * 60e3
   const td = providers.find((p) => p.key === 'twelve_data')
+  // A per-minute credit/rate limit is a budget event, not a feed outage — warn, never trip.
+  const budgetOnly = (p: { lastError: string | null }) => /budget|rate limit|credits?|429|too many/i.test(p.lastError ?? '')
   const bad = providers.filter((p) => p.status === 'error' && !stale(p))
+  const tdOutage = !!td && td.status === 'error' && !stale(td) && !budgetOnly(td)
   breakers.push({
     key: 'data_health', label: 'Market-data health',
-    state: td && td.status === 'error' && !stale(td) ? 'tripped' : bad.length ? 'warn' : 'ok',
+    state: tdOutage ? 'tripped' : bad.length ? 'warn' : 'ok',
     value: bad.length ? bad.map((p) => `${p.key}: ${p.status}`).join(' · ') : 'all feeds healthy',
-    threshold: 'primary quote feed healthy', detail: td?.lastError && td.status === 'error' ? `Twelve Data: ${td.lastError}` : 'Recent provider health stamps from the Data Provider Hub.', action: 'disarm',
+    threshold: 'primary quote feed healthy', detail: td?.lastError && td.status === 'error' ? `Twelve Data: ${td.lastError}${budgetOnly(td) ? ' (budget/rate limit — warn only)' : ''}` : 'Recent provider health stamps from the Data Provider Hub.', action: 'disarm',
   })
 
   const tripped = breakers.filter((b) => b.state === 'tripped')

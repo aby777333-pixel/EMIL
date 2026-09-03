@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { STRATEGIES, runBacktest, type BacktestConfig, type StrategyKey } from '@/lib/backtest/engine'
 import { CANDLE_SOURCES, loadCandles, type CandleInterval, type CandleSource } from '@/lib/backtest/candles'
+import { walkForward, monteCarlo } from '@/lib/backtest/robustness'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -61,6 +62,10 @@ export async function POST(req: Request) {
     const bars = Number(body?.bars ?? 1000)
     const candles: any = await loadCandles(source, symbol, interval, bars)
     const result = runBacktest(candles.data, cfg)
+    // Robustness (spec §32–34): walk-forward re-tuning + Monte Carlo resampling on the same candles.
+    const robustness = body?.robustness
+      ? { walkForward: walkForward(candles.data, cfg, Math.max(2, Math.min(8, Number(body?.folds ?? 4)))), monteCarlo: monteCarlo(result.trades, cfg.initialCapital, Math.max(100, Math.min(2000, Number(body?.mcRuns ?? 500)))) }
+      : null
 
     let labRun: any = null
     const blueprintId = typeof body?.blueprintId === 'string' && body.blueprintId ? body.blueprintId : null
@@ -72,7 +77,7 @@ export async function POST(req: Request) {
           data: {
             blueprintId: b.id, runType: 'backtest', dataMode: 'historical', status: 'completed',
             params: JSON.stringify({ source, symbol: candles.symbol, interval, bars: result.metrics.bars, ...cfg }),
-            metrics: JSON.stringify({ ...result.metrics, dataMode: 'historical' }),
+            metrics: JSON.stringify({ ...result.metrics, dataMode: 'historical', ...(robustness ? { walkForward: { verdict: robustness.walkForward.verdict, oos: robustness.walkForward.oos }, monteCarlo: { verdict: robustness.monteCarlo.verdict, probLoss: robustness.monteCarlo.probLoss, p5: robustness.monteCarlo.finalReturnPct.p5, dd95: robustness.monteCarlo.maxDrawdownPct.p95 } } : {}) }),
             verdict: result.verdict, notes: notes.slice(0, 3000),
           },
         })
@@ -91,7 +96,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true, source, symbol: candles.symbol, interval, strategy, params, cfg,
       dataFetchedAt: candles.fetchedAt, cached: !!candles.cached, stale: !!candles.stale,
-      ...result, trades: result.trades.slice(-200), labRunId: labRun?.id ?? null,
+      ...result, trades: result.trades.slice(-200), labRunId: labRun?.id ?? null, robustness,
     })
   } catch (e: any) {
     if (e?.rateLimited) return NextResponse.json({ error: 'Market-data budget reached — retry in a minute.' }, { status: 429 })
