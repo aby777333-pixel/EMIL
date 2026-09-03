@@ -1162,3 +1162,30 @@ model InstrumentMaster {
   @@index([assetClass])
   @@map("instrument_master")
 }
+
+// Charting persistence (spec §14, §253): saved layouts + per-symbol price levels.
+model ChartLayout {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  config    String   // JSON: symbol, interval, chartType, sma, ema, rsi, bb, compare
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@map("chart_layouts")
+}
+
+model ChartLevel {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  price     Float
+  label     String?
+  color     String   @default("#f59e0b")
+  createdAt DateTime @default(now())
+
+  @@index([userId, symbol])
+  @@map("chart_levels")
+}

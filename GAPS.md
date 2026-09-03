@@ -26,7 +26,7 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 | Trade journal & performance analytics (§35–36) | ROUND 5 | /journal: entries from Paper Desk fills and agent trade orders (one click) or manual; setup, tags, mistakes, exit/P&L; tag win-rates + most common mistakes; **AI post-trade review** grades the PROCESS (A–F, right/wrong, recurring patterns across history, rules for next time, risk flag). |
 | Alerts / notification center (§37, §65) | ROUND 3 + ROUND 5 delivery | **Round 5:** Telegram (bot + one-time link code, no webhook) and email (Resend) delivery, opt-in per user in Settings → Alert Delivery; fan-out from the same evaluator. | /alerts + top-bar bell: price alerts on watchlist symbols (evaluated against the same cached delayed quotes — zero extra credits), race-safe triggering, in-app notification center with unread counts. Delivery is in-app only (stated honestly); email/push/Telegram: MISSING. Behind the `alerts_center` flag. |
 | Institutional workspaces & roles (§38–39, §219) | MISSING | Only trader/admin roles today. |
-| Navigation & global search (§40–42) | ROUND 1 | Ctrl+K command palette across cockpit + command center; instrument-level search: MISSING. |
+| Navigation & global search (§40–42) | ROUND 1 + ROUND 7 | Ctrl+K command palette across cockpit + command center; **instrument-level search** live in the palette (type gold / EURUSD / SPX / nifty → chart) and as autocomplete on the watchlist add box. |
 | Billing/subscriptions/wallet/crypto payments (§44–49) | PARTIAL | Plans + MRR tracked in CRM; **no payment gateway, wallet or crypto payments yet.** |
 | Demo environment (§50–51) | ROUND 6 | Command → **Demo Environment**: a dedicated demo TRADER login (never the admin) — set/rotate its password (random or custom, shown once), reset its simulated portfolio to a fixed baseline (10 000 USD, open/pending positions closed at 0 P/L), operator note, reset counter; every action audited (category `demo`). Table `demo_environment`. |
 | Admin panel expansion (§52) | PARTIAL | Command Center covers users/CRM/keys (+rotation)/connections/providers/feature flags/research/audit/**demo environment**; billing config, AI governance: MISSING. |
@@ -42,7 +42,7 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 | Research notebook / reports / briefs (§67–69) | PARTIAL | Research notebook exists (auto sessions); report generation, morning briefs: MISSING. |
 | EMIL native platform integration (§127–134, §166) | ROUND 1 + **EMIL TRADE (2026-09-03)** — the Raptor terminal cloned into this repo (`emil-trade/`, own Netlify site `emil-trade.netlify.app`, same Supabase as Raptor), rebranded; its in-terminal EMIL console removed in favour of new-tab links to this cockpit; cockpit links back (sidebar EMIL Trade / Live TV / Live Chat, Trade-With-EMIL card, ⌘K). Terminal gained **Live TV** (📺 chip, YouTube live channels) and a real **Live Chat** (💬 chip, Supabase realtime, 6 market rooms, presence, $SYMBOL links). | "Trade With EMIL" card: Option A (connect broker) vs Option B (EMIL platform → Raptor terminal) with honest LIVE vs COMING SOON labels and the demo-feed disclosure. Smart routing/venue display: MISSING (no live execution engine yet). |
 | Intermarket/correlation/hedging/scenario engines (§96–§115, §138) | MISSING | Flagship institutional layer — build after historical data + keys land. |
-| Instrument master & symbol normalization (§150–151) | MISSING | Prerequisite for the equities terminal. |
+| Instrument master & symbol normalization (§150–151) | ROUND 7 | `lib/instruments/catalog.ts` (~120 instruments: forex majors/minors/exotics, metals, index CFDs, energies, crypto, US stocks/ETFs, India NSE/BSE/MCX) with the symbol every provider knows them by — Twelve Data (ETF **PROXY** flagged honestly), TradingView, EMIL Trade, Deribit/Gemini/Delta — plus aliases, lot/tick sizes, `dataStatus`, `tradable`. Synced idempotently into `instrument_master`; `/api/instruments` (search / detail / list / resolve); `/instruments` page. `/api/data` time series + correlation and watchlist adds resolve ANY spelling (EURUSD, EUR/USD, gold, SPX, nifty…). |
 | Feature flags (§77) | ROUND 3 | Command → Feature Flags: DB-backed flags, audited toggles, ~30s in-process cache, new flags start OFF. Seeded: alerts_center (ON), autonomous_trading / crypto_payments / institutional_workspaces / options_analytics (OFF). |
 | Global-state safety (§39, hardening) | ROUND 3 | ARM, mode change and any close-all are now owner(admin)-only — EmilState is a single global row and self-signup is open. DISARM (stop automation) and EMERGENCY STOP deliberately stay available to every signed-in user: a kill switch is never permission-walled. |
 
@@ -77,6 +77,11 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 - **API key rotation** (§11) — Command → API Keys.
 - **Demo Environment** (§50–51) — Command → Demo Environment.
 - Not built (blocked): **SSO between cockpit and EMIL Trade** needs the terminal Supabase project's service-role key to mint sessions — not available to the build; today it is a second sign-in. Alert delivery envs (`TELEGRAM_BOT_TOKEN`, `RESEND_API_KEY`) still unset by the owner.
+
+## Round 7 (2026-09-03 night) — Instrument Master
+
+- Canonical instrument catalog + normalization (`lib/instruments/*`), `instrument_master` table, `/api/instruments`, `/instruments` page, ⌘K instrument search, watchlist autocomplete, research routes accept any spelling.
+- Still to grow: per-exchange instrument-master SYNC from providers (Twelve Data `/stocks`, NSE masters) — today the catalog is curated code, versioned (`CATALOG_VERSION`).
 
 ## Recommended next rounds
 
