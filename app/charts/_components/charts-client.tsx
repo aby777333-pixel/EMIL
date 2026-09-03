@@ -10,7 +10,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel, LoadingPanel } from '@/components/cockpit/panel'
-import { CandlestickChart, Search, TrendingUp, GitCompareArrows, Crosshair, Save, Star, Trash2, X, Minus } from 'lucide-react'
+import { CandlestickChart, Search, TrendingUp, GitCompareArrows, Crosshair, Save, Star, Trash2, X, Minus, FileText } from 'lucide-react'
+import ReportPanel from './report-panel'
 import toast from 'react-hot-toast'
 
 const QUICK_PICKS = ['EUR/USD', 'XAU/USD', 'SPY', 'QQQ', 'AAPL', 'TSLA', 'NVDA', 'BTC/USD', 'USO', 'USD/INR']
@@ -88,6 +89,7 @@ export default function ChartsClient() {
   const [levels, setLevels] = useState<Level[]>([])
   const [layouts, setLayouts] = useState<Layout[]>([])
   const [placing, setPlacing] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const [levelPrice, setLevelPrice] = useState('')
   const [levelLabel, setLevelLabel] = useState('')
   const [meta, setMeta] = useState<any>(null)
@@ -305,8 +307,10 @@ export default function ChartsClient() {
 
   // Deep link: /charts?symbol=XYZ (watchlist rows, ⌘K and the instrument master link here)
   useEffect(() => {
-    const s = new URLSearchParams(window.location.search).get('symbol')
+    const qs = new URLSearchParams(window.location.search)
+    const s = qs.get('symbol')
     if (s) { setSymbol(s.toUpperCase()); setInput(s.toUpperCase()) }
+    if (qs.get('report') === '1') setReportOpen(true)
   }, [])
 
   useEffect(() => { loadSettings(symbol) }, [symbol, loadSettings])
@@ -376,7 +380,8 @@ export default function ChartsClient() {
             <input value={compareInput} onChange={(e) => setCompareInput(e.target.value)} className="w-28 rounded-md bg-background border border-border px-2 py-1 text-[10px] text-white num" placeholder="compare: SPY…" />
             {compare ? <button type="button" onClick={() => { setCompare(null); setCompareInput('') }} title="Remove compare" className="text-slate-500 hover:text-red-400"><X className="h-3.5 w-3.5" /></button> : <button type="submit" className="text-[10px] text-rose-300 hover:underline">compare</button>}
           </form>
-          <button onClick={saveLayout} title="Save this setup as a layout" className="ml-auto rounded px-2 py-1 text-[10px] font-bold border border-border bg-secondary/40 text-slate-300 hover:text-white flex items-center gap-1"><Save className="h-3 w-3" /> Save layout</button>
+          <button onClick={() => setReportOpen((o) => !o)} title="Generate an instrument research report (statistics + live context, one AI call)" className={`ml-auto rounded px-2 py-1 text-[10px] font-bold border flex items-center gap-1 ${reportOpen ? 'border-violet-500/50 bg-violet-500/10 text-violet-200' : 'border-border bg-secondary/40 text-slate-300 hover:text-white'}`}><FileText className="h-3 w-3" /> Research report</button>
+          <button onClick={saveLayout} title="Save this setup as a layout" className="rounded px-2 py-1 text-[10px] font-bold border border-border bg-secondary/40 text-slate-300 hover:text-white flex items-center gap-1"><Save className="h-3 w-3" /> Save layout</button>
         </div>
 
         <div className="flex gap-1.5 flex-wrap mb-3">
@@ -420,6 +425,8 @@ export default function ChartsClient() {
           ) : <p className="mt-1.5 text-[10px] text-slate-600">No levels on {symbol} yet — arm “Place on chart” and click a price, or type one. Levels are your own marks, saved per symbol.</p>}
         </div>
       </Panel>
+
+      <ReportPanel symbol={symbol} open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   )
 }

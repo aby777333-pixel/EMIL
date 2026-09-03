@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Panel, LoadingPanel } from '@/components/cockpit/panel'
-import { Boxes, Search, CandlestickChart, ExternalLink } from 'lucide-react'
+import { Boxes, Search, CandlestickChart, ExternalLink, FileText } from 'lucide-react'
 import { EMIL_TRADE_URL } from '@/lib/emil-trade'
 import { marketLabel } from '@/lib/instruments/catalog'
 
@@ -92,6 +92,7 @@ export default function InstrumentsClient() {
                     <td className="py-1.5 pr-3"><span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${r.dataStatus === 'live' ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' : 'text-slate-400 border-slate-600/50 bg-slate-700/30'}`}>{r.dataStatus === 'live' ? 'live' : 'coming soon'}</span></td>
                     <td className="py-1.5 whitespace-nowrap">
                       {r.tdSymbol ? <Link href={`/charts?symbol=${encodeURIComponent(r.tdSymbol)}`} title="Open chart" className="inline-flex items-center gap-1 text-[10px] text-cyan-300 hover:underline mr-2"><CandlestickChart className="h-3 w-3" /> chart</Link> : null}
+                      {r.tdSymbol ? <Link href={`/charts?symbol=${encodeURIComponent(r.tdSymbol)}&report=1`} title="Generate a research report" className="inline-flex items-center gap-1 text-[10px] text-violet-300 hover:underline mr-2"><FileText className="h-3 w-3" /> report</Link> : null}
                       {r.tradable ? <a href={`${EMIL_TRADE_URL}/terminal`} target="_blank" rel="noopener noreferrer" title="Tradable on EMIL Trade (opens in a new tab)" className="inline-flex items-center gap-1 text-[10px] text-emerald-300 hover:underline"><ExternalLink className="h-3 w-3" /> EMIL Trade</a> : null}
                     </td>
                   </tr>
