@@ -47,6 +47,7 @@ export default function MarketsClient() {
   const [board, setBoard] = useState<any>(null)
   const [fx, setFx] = useState<any>(null)
   const [crypto, setCrypto] = useState<any>(null)
+  const [venues, setVenues] = useState<any>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [refreshing, setRefreshing] = useState(false)
 
@@ -74,6 +75,7 @@ export default function MarketsClient() {
       grab('market_board', setBoard, 'board'),
       grab('fx_rates&base=USD', setFx, 'fx'),
       grab('crypto_markets', setCrypto, 'crypto'),
+      grab('crypto_venues', setVenues, 'venues'),
     ])
     setRefreshing(false)
   }, [])
@@ -167,6 +169,40 @@ export default function MarketsClient() {
               </div>
               <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
                 <SourceTag freshness="daily" /> {fx.attribution} · reference date {fx.referenceDate} · fetched {fmtTime(fx.fetchedAt)}. Daily fixing — NOT a live tradable price.
+              </p>
+            </>
+          )}
+        </Panel>
+
+        {/* Crypto derivatives — live from the venues (Deribit / Delta / Gemini public tickers) */}
+        <Panel title="Crypto — live from the venues" icon={Bitcoin} accent="amber">
+          {errors.venues ? <p className="text-xs text-amber-300">{errors.venues}</p> : !venues ? <LoadingPanel text="Loading venue tickers..." /> : (
+            <>
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-border">
+                      <th className="py-1 pr-3">Venue</th><th className="py-1 pr-3">Instrument</th><th className="py-1 pr-3 text-right">Last</th><th className="py-1 pr-3 text-right">Mark</th><th className="py-1 pr-3 text-right">24h</th><th className="py-1 pr-3 text-right">Funding 8h</th><th className="py-1 pr-3 text-right">OI</th><th className="py-1 text-right">Vol 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(venues.data ?? []).map((v: any) => (
+                      <tr key={`${v.venue}-${v.symbol}`} className="border-b border-border/40">
+                        <td className="py-1.5 pr-3 text-[11px] text-slate-300">{v.venueLabel}<span className="ml-1 text-[9px] uppercase text-slate-500">{v.kind}</span></td>
+                        <td className="py-1.5 pr-3 text-[11px] font-mono text-white">{v.symbol}{v.error ? <span className="ml-1 text-[10px] text-red-400">{v.error}</span> : null}</td>
+                        <td className="py-1.5 pr-3 num text-[11px] text-white text-right">{typeof v.last === 'number' ? v.last.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
+                        <td className="py-1.5 pr-3 num text-[11px] text-slate-300 text-right">{typeof v.mark === 'number' ? v.mark.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
+                        <td className={`py-1.5 pr-3 num text-[11px] text-right ${pctTone(v.change24hPct)}`}>{fmtPctS(v.change24hPct)}</td>
+                        <td className={`py-1.5 pr-3 num text-[11px] text-right ${typeof v.fundingRate8hPct !== 'number' ? 'text-slate-500' : v.fundingRate8hPct >= 0 ? 'text-amber-300' : 'text-cyan-300'}`}>{typeof v.fundingRate8hPct === 'number' ? `${v.fundingRate8hPct.toFixed(4)}%` : '—'}</td>
+                        <td className="py-1.5 pr-3 num text-[10px] text-slate-400 text-right">{typeof v.openInterestUsd === 'number' ? `$${(v.openInterestUsd / 1e6).toFixed(1)}M` : '—'}</td>
+                        <td className="py-1.5 num text-[10px] text-slate-400 text-right">{typeof v.volume24hUsd === 'number' ? `$${(v.volume24hUsd / 1e6).toFixed(1)}M` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
+                <SourceTag freshness="realtime" /> {venues.attribution} · fetched {fmtTime(venues.fetchedAt)}{venues.stale ? ' · STALE' : ''}
               </p>
             </>
           )}

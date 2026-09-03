@@ -4,6 +4,7 @@
 // on delayed data: they must never trigger execution, only notifications.
 
 import { prisma } from '@/lib/db'
+import { deliverNotification } from '@/lib/notify'
 
 type QuoteLike = { symbol: string; price: number | null }
 
@@ -30,15 +31,14 @@ export async function evaluateAlerts(userId: string, quotes: QuoteLike[]) {
         data: { status: 'triggered', triggeredAt: new Date(), lastPrice: price },
       })
       if (won.count === 1) {
-        await prisma.notification.create({
-          data: {
-            userId,
-            kind: 'price_alert',
-            title: `${a.symbol} crossed ${a.condition === 'above' ? 'above' : 'below'} ${a.threshold}`,
-            body: `Last delayed research quote: ${price}. Quotes are cached ~5 min — this is a research signal, not an execution trigger.${a.note ? ` Note: ${a.note}` : ''}`,
-            href: `/charts?symbol=${encodeURIComponent(a.symbol)}`,
-          },
-        }).catch(() => {})
+        const n = {
+          title: `${a.symbol} crossed ${a.condition === 'above' ? 'above' : 'below'} ${a.threshold}`,
+          body: `Last delayed research quote: ${price}. Quotes are cached ~5 min — this is a research signal, not an execution trigger.${a.note ? ` Note: ${a.note}` : ''}`,
+          href: `/charts?symbol=${encodeURIComponent(a.symbol)}`,
+        }
+        await prisma.notification.create({ data: { userId, kind: 'price_alert', ...n } }).catch(() => {})
+        // Telegram / email fan-out (opt-in per user) — never blocks the data path.
+        await deliverNotification(userId, n)
       }
     }
   } catch (e) {

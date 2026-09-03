@@ -1,4 +1,4 @@
-import { Beaker } from 'lucide-react'
+import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText } from 'lucide-react'
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
   Landmark, FlaskConical, GraduationCap, BrainCircuit, Settings, Plug,
@@ -19,6 +19,10 @@ export const NAV_ITEMS = [
   { href: '/agents', label: 'Agent Council', icon: Network },
   { href: '/api-hub', label: 'Global API Hub', icon: Plug },
   { href: '/paper', label: 'Paper Trading Desk', icon: Beaker },
+  { href: '/backtest', label: 'Backtest Engine', icon: FlaskRound },
+  { href: '/options', label: 'Options Analytics', icon: Sigma },
+  { href: '/calendar', label: 'Calendar & Central Banks', icon: CalendarDays },
+  { href: '/journal', label: 'Trade Journal', icon: BookOpenText },
   { href: '/risk', label: 'Risk Management', icon: Gauge },
   { href: '/capital', label: 'Capital & Performance', icon: Landmark },
   { href: '/strategies', label: 'Strategy Center', icon: FlaskConical },

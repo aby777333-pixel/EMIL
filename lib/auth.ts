@@ -3,6 +3,9 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
+import { rateLimit, rateLimitReset } from '@/lib/rate-limit'
+import { decryptSecret } from '@/lib/secrets'
+import { verifyTotp } from '@/lib/totp'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -14,13 +17,28 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        totp: { label: 'Authenticator code', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
-        const user = await prisma.user.findUnique({ where: { email: credentials.email }, include: { profile: true } })
+        const email = credentials.email.toLowerCase().trim()
+        // Brute-force protection: failures per email and per client IP, 15-minute windows.
+        const ip = String((req as any)?.headers?.['x-nf-client-connection-ip'] ?? (req as any)?.headers?.['x-forwarded-for'] ?? 'unknown').split(',')[0].trim()
+        const [byEmail, byIp] = await Promise.all([rateLimit(`login:email:${email}`, 10, 900), rateLimit(`login:ip:${ip}`, 30, 900)])
+        if (!byEmail.allowed || !byIp.allowed) {
+          throw new Error(`Too many sign-in attempts. Try again in ${Math.ceil(Math.max(byEmail.retryAfterSec, byIp.retryAfterSec) / 60)} minutes.`)
+        }
+        const user = await prisma.user.findUnique({ where: { email }, include: { profile: true } })
         if (!user?.password) return null
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
+        // Two-factor authentication (TOTP) when the account has it enabled.
+        if (user.totpEnabled && user.totpSecret) {
+          const code = String((credentials as any)?.totp ?? '').trim()
+          if (!code) throw new Error('TOTP_REQUIRED')
+          if (!verifyTotp(decryptSecret(user.totpSecret) as string, code)) throw new Error('TOTP_INVALID')
+        }
+        await rateLimitReset(`login:email:${email}`)
         // Suspended/churned customers cannot sign in (Command Center CRM control).
         if (user.role !== 'admin' && (user.profile?.status === 'suspended' || user.profile?.status === 'churned')) {
           throw new Error('Your EMIL account is suspended. Contact support to restore access.')

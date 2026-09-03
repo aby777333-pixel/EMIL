@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import DeliveryPanel from './delivery-panel'
+import TwoFactorPanel from './two-factor-panel'
 import { Panel, LoadingPanel, StatusMessage } from '@/components/cockpit/panel'
 import { fmtNum, healthColor } from '@/lib/format'
 import { Settings, ToggleRight, SlidersHorizontal, ScrollText, FileClock, HeartPulse, Siren } from 'lucide-react'
@@ -107,6 +109,11 @@ export default function SettingsClient() {
       <div>
         <h1 className="text-xl font-bold text-white flex items-center gap-2"><Settings className="h-5 w-5 text-cyan-400" /> Settings & Permissions</h1>
         <p className="text-xs text-slate-500 mt-1">EMIL never acts outside granted permissions. Every change is consent-logged and auditable.</p>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <TwoFactorPanel />
+        <DeliveryPanel />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

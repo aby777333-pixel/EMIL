@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { cryptoMarkets, fxRates, marketBoard, newsFeed, timeSeries, correlationPair } from '@/lib/data/hub'
+import { cryptoVenueBoard } from '@/lib/data/crypto-venues'
+import { optionsChain } from '@/lib/data/deribit-options'
+import { centralBankMonitor, economicCalendar } from '@/lib/data/calendar'
+import { flagEnabled } from '@/lib/flags'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +20,21 @@ export async function GET(req: Request) {
 
     if (fn === 'crypto_markets') {
       return NextResponse.json({ ok: true, ...(await cryptoMarkets(25)) })
+    }
+    if (fn === 'crypto_venues') {
+      return NextResponse.json({ ok: true, ...(await cryptoVenueBoard()) })
+    }
+    if (fn === 'options_chain') {
+      if (!(await flagEnabled('options_analytics', true))) return NextResponse.json({ ok: true, disabled: true })
+      const currency = url.searchParams.get('currency') === 'ETH' ? 'ETH' : 'BTC'
+      const expiry = (url.searchParams.get('expiry') ?? '').toUpperCase().slice(0, 10) || undefined
+      return NextResponse.json({ ok: true, ...(await optionsChain(currency, expiry)) })
+    }
+    if (fn === 'econ_calendar') {
+      return NextResponse.json({ ok: true, ...(await economicCalendar()) })
+    }
+    if (fn === 'central_banks') {
+      return NextResponse.json({ ok: true, ...(await centralBankMonitor()) })
     }
     if (fn === 'fx_rates') {
       const base = (url.searchParams.get('base') ?? 'USD').toUpperCase().slice(0, 3)
@@ -42,7 +61,7 @@ export async function GET(req: Request) {
       const bars = parseInt(url.searchParams.get('bars') ?? '180', 10)
       return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars)) })
     }
-    return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, fx_rates, market_board, news, time_series, correlation.` }, { status: 400 })
+    return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, crypto_venues, options_chain, econ_calendar, central_banks, fx_rates, market_board, news, time_series, correlation.` }, { status: 400 })
   } catch (e: any) {
     if (e?.rateLimited) {
       const retryAfterSec = Math.max(2, Math.min(65, e.retryAfterSec ?? 30))

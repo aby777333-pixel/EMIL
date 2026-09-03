@@ -47,6 +47,7 @@ export const DATA_PROVIDERS: DataProviderDef[] = [
 
   // ---- News / events ----
   { key: 'gdelt', name: 'GDELT DOC 2.0', category: 'news', baseUrl: 'https://api.gdeltproject.org/api/v2', docsUrl: 'https://www.gdeltproject.org/', authType: 'none', priority: 10, fallbackKey: 'google_news_rss', license: 'Open; attribution to GDELT required.', freshness: 'realtime', coverage: 'Global news index, events, geopolitics (15-min updates)' },
+  { key: 'forexfactory', name: 'Forex Factory calendar feed', category: 'macro', baseUrl: 'https://nfs.faireconomy.media', docsUrl: 'https://www.forexfactory.com/calendar', authType: 'none', priority: 15, license: 'Free public JSON feed (this week + next week). Powers the Economic Calendar + Central Bank Monitor.', freshness: 'delayed', coverage: 'Global economic events, impact, forecast/previous/actual, central-bank rate decisions' },
   { key: 'google_news_rss', name: 'Google News RSS', category: 'news', baseUrl: 'https://news.google.com/rss', docsUrl: 'https://news.google.com/', authType: 'none', priority: 20, license: 'Public RSS feeds; links open original publishers — index only, never republish content.', freshness: 'realtime', coverage: 'Global news headlines by query (fallback for GDELT)' },
 
   // ---- Energy / agriculture / trade / weather ----

@@ -504,7 +504,7 @@ async function main() {
     { key: 'autonomous_trading', label: 'Autonomous live trading', description: 'Master gate for any future live autonomous execution. Keep OFF until a real execution engine ships.', enabled: false },
     { key: 'crypto_payments', label: 'Crypto subscription payments', description: 'Future billing rail (spec §48). No gateway integrated yet.', enabled: false },
     { key: 'institutional_workspaces', label: 'Institutional workspaces', description: 'Future organizations/teams layer (spec §38–39).', enabled: false },
-    { key: 'options_analytics', label: 'Options analytics', description: 'Future options terminal (spec §25) — needs a keyed options data provider.', enabled: false },
+    { key: 'options_analytics', label: 'Options analytics', description: 'Options terminal (spec §25) on Deribit public marks: chain, ATM IV term structure, put/call OI, max pain, skew. Research only.', enabled: true },
     { key: 'paper_trading_desk', label: 'Paper Trading Desk', description: 'Guarded order router + /paper desk on testnet/sandbox venues (Deribit Testnet, Gemini Sandbox, Delta Demo). Test funds only.', enabled: true },
     { key: 'live_crypto_execution', label: 'Live crypto execution', description: 'Allows the guarded router to send REAL orders to live Deribit / Gemini / Delta rows (owner only, EMIL must be ARMED, per-order cap). Keep OFF until rehearsed on paper.', enabled: false },
   ];

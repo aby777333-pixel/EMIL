@@ -27,6 +27,13 @@ model User {
   profile       CustomerProfile?
   apiKeys       ApiKey[]
   brokerLinks   UserBrokerConnection[]
+  // Alert delivery (spec §37/§65)
+  telegramChatId String?
+  notifyTelegram Boolean   @default(false)
+  notifyEmail    Boolean   @default(false)
+  // Two-factor authentication (TOTP secret stored encrypted)
+  totpSecret     String?
+  totpEnabled    Boolean   @default(false)
 
   @@map("users")
 }
@@ -1050,4 +1057,42 @@ model VenueOrder {
 
   @@index([userId, providerKey, createdAt])
   @@map("venue_orders")
+}
+
+// ============ TRADE JOURNAL (spec §35–36) ============
+
+model JournalEntry {
+  id           String    @id @default(cuid())
+  userId       String
+  sourceType   String    @default("manual") // venue_order | trade_order | manual
+  sourceId     String?
+  symbol       String
+  side         String?   // buy | sell
+  qty          Float?
+  entryPrice   Float?
+  exitPrice    Float?
+  pnl          Float?
+  notes        String?
+  tags         String?   // csv
+  setup        String?
+  mistakes     String?   // csv
+  aiReview     String?   // JSON from the post-trade review
+  aiReviewedAt DateTime?
+  tradedAt     DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("journal_entries")
+}
+
+// ============ RATE LIMITING ============
+
+// Fixed-window counters shared across serverless instances (lib/rate-limit).
+model RateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@map("rate_limits")
 }

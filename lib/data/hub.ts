@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db'
 
 const UA = 'EMIL-Research/1.0 (contact: admin@emil.app)'
 
-const timeoutFetch = async (url: string, init: RequestInit = {}, ms = 12000): Promise<Response> => {
+export const timeoutFetch = async (url: string, init: RequestInit = {}, ms = 12000): Promise<Response> => {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), ms)
   try {
@@ -42,7 +42,7 @@ async function timed<T>(key: string, fn: () => Promise<T>): Promise<T> {
 // Server-side research cache: one upstream fetch per TTL regardless of user
 // count, so free-tier rate limits (Twelve Data: 8 credits/min) are respected.
 // On upstream failure a stale cached copy is served, clearly stamped stale.
-async function cachedFetch<T extends { fetchedAt: string }>(cacheKey: string, ttlSec: number, fn: () => Promise<T>): Promise<T & { cached?: boolean; stale?: boolean }> {
+export async function cachedFetch<T extends { fetchedAt: string }>(cacheKey: string, ttlSec: number, fn: () => Promise<T>): Promise<T & { cached?: boolean; stale?: boolean }> {
   const row = await prisma.cacheEntry.findUnique({ where: { key: cacheKey } }).catch(() => null)
   if (row && Date.now() - row.fetchedAt.getTime() < ttlSec * 1000) {
     try {

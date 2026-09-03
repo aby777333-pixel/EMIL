@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
+import { clientIp, rateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request) {
   try {
+    // Abuse protection: 5 signups per IP per hour, 60 platform-wide per hour.
+    const ip = clientIp(req)
+    const [perIp, global] = await Promise.all([rateLimit(`signup:ip:${ip}`, 5, 3600), rateLimit('signup:global', 60, 3600)])
+    if (!perIp.allowed || !global.allowed) {
+      return NextResponse.json({ error: 'Too many signups right now — please try again later.' }, { status: 429, headers: { 'Retry-After': String(Math.max(perIp.retryAfterSec, global.retryAfterSec)) } })
+    }
     const body = await req.json().catch(() => ({}))
     const email = (body?.email ?? '').toLowerCase().trim()
     const password = body?.password ?? ''

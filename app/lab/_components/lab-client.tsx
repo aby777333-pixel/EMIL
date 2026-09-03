@@ -195,6 +195,11 @@ export default function LabClient() {
             </div>
 
             <div className="mt-4 flex items-center gap-2 flex-wrap">
+              {b.state !== 'REJECTED' ? (
+                <a href={`/backtest?blueprint=${b.id}`} className="flex items-center gap-1.5 rounded-md border border-violet-500/40 bg-violet-500/10 hover:border-violet-400 text-violet-200 text-[11px] font-bold px-3 py-2 transition-colors">
+                  <History className="h-3.5 w-3.5" /> BACKTEST ON REAL HISTORY
+                </a>
+              ) : null}
               {b.state !== 'REJECTED' && b.labStage !== 'human_review' ? (
                 <button onClick={() => action({ type: 'run_stage', blueprintId: b.id }, `run-${b.id}`)} disabled={!!busyId} className="flex items-center gap-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-[11px] font-bold px-4 py-2 transition-colors">
                   <Play className="h-3.5 w-3.5" /> {busyId === `run-${b.id}` ? 'RUNNING...' : `RUN ${(STAGE_LABELS[PIPELINE[Math.max(0, stageIdx + (b.labStage === 'idea' ? 0 : 1))]] ?? 'NEXT STAGE').toUpperCase()}`}

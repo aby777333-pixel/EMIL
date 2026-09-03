@@ -14,6 +14,8 @@ export function LoginClient() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [totp, setTotp] = useState('')
+  const [needTotp, setNeedTotp] = useState(false)
 
   useEffect(() => {
     if (status === 'authenticated') router.replace('/')
@@ -36,7 +38,23 @@ export function LoginClient() {
           return
         }
       }
-      const result = await signIn('credentials', { email, password, redirect: false })
+      const result = await signIn('credentials', { email, password, totp, redirect: false })
+      if (result?.error === 'TOTP_REQUIRED') {
+        setNeedTotp(true)
+        toast('Enter the 6-digit code from your authenticator app.')
+        setBusy(false)
+        return
+      }
+      if (result?.error === 'TOTP_INVALID') {
+        toast.error('That authenticator code is not valid.')
+        setBusy(false)
+        return
+      }
+      if (result?.error && /too many/i.test(result.error)) {
+        toast.error(result.error)
+        setBusy(false)
+        return
+      }
       if (result?.error) {
         // Surface real account-state messages (e.g. suspension); generic
         // CredentialsSignin stays "invalid email or password".
@@ -118,6 +136,13 @@ export function LoginClient() {
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password"
                 className="w-full rounded-md border border-input bg-background px-9 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500" />
             </div>
+            {needTotp && mode === 'login' ? (
+              <div className="relative">
+                <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-emerald-400" />
+                <input inputMode="numeric" autoComplete="one-time-code" required value={totp} onChange={(e) => setTotp(e.target.value)} placeholder="Authenticator code (6 digits)"
+                  className="w-full rounded-md border border-emerald-500/50 bg-background px-9 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              </div>
+            ) : null}
             <button type="submit" disabled={busy}
               className="w-full rounded-md bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition-colors disabled:opacity-50">
               {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}

@@ -1,0 +1,94 @@
+// Notification delivery beyond the in-app bell (spec §37/§65): Telegram and
+// email. Both are opt-in per user and need a server-side integration key
+// (TELEGRAM_BOT_TOKEN / RESEND_API_KEY). Delivery is best-effort and never
+// blocks the caller; the in-app notification is always written first.
+
+import { prisma } from '@/lib/db'
+import { timeoutFetch } from '@/lib/execution/types'
+
+export const telegramConfigured = () => !!process.env.TELEGRAM_BOT_TOKEN
+export const emailConfigured = () => !!process.env.RESEND_API_KEY
+
+const tg = (method: string) => `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`
+
+export async function telegramSend(chatId: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  if (!telegramConfigured()) return { ok: false, error: 'Telegram is not configured on the server (TELEGRAM_BOT_TOKEN).' }
+  try {
+    const res = await timeoutFetch(tg('sendMessage'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true }),
+    }, 8000)
+    const j = await res.json().catch(() => null)
+    return j?.ok ? { ok: true } : { ok: false, error: j?.description ?? `Telegram responded ${res.status}` }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? 'network error' }
+  }
+}
+
+export async function telegramBotName(): Promise<string | null> {
+  if (!telegramConfigured()) return null
+  try {
+    const res = await timeoutFetch(tg('getMe'), {}, 6000)
+    const j = await res.json().catch(() => null)
+    return j?.result?.username ?? null
+  } catch {
+    return null
+  }
+}
+
+// Linking without a webhook: the user sends the one-time code to the bot and
+// EMIL scans recent bot updates for it (Telegram keeps ~24h of updates while
+// no webhook is registered).
+export async function telegramFindChatByCode(code: string): Promise<string | null> {
+  if (!telegramConfigured()) return null
+  try {
+    const res = await timeoutFetch(tg('getUpdates?limit=100&allowed_updates=%5B%22message%22%5D'), {}, 8000)
+    const j = await res.json().catch(() => null)
+    const updates: any[] = Array.isArray(j?.result) ? j.result : []
+    for (let i = updates.length - 1; i >= 0; i--) {
+      const m = updates[i]?.message
+      const text = String(m?.text ?? '')
+      if (text.includes(code) && m?.chat?.id) return String(m.chat.id)
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export async function emailSend(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
+  if (!emailConfigured()) return { ok: false, error: 'Email is not configured on the server (RESEND_API_KEY).' }
+  try {
+    const res = await timeoutFetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      body: JSON.stringify({ from: process.env.EMAIL_FROM ?? 'EMIL <onboarding@resend.dev>', to, subject, html }),
+    }, 10000)
+    const j = await res.json().catch(() => null)
+    return res.ok ? { ok: true } : { ok: false, error: j?.message ?? `Resend responded ${res.status}` }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? 'network error' }
+  }
+}
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+// Fan a notification out to every channel the user opted into. Fire-and-forget.
+export async function deliverNotification(userId: string, n: { title: string; body?: string | null; href?: string | null }) {
+  try {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, telegramChatId: true, notifyTelegram: true, notifyEmail: true } })
+    if (!u) return
+    const base = (process.env.NEXTAUTH_URL ?? '').replace(/\/$/, '')
+    const link = n.href ? `${base}${n.href}` : base
+    const jobs: Promise<unknown>[] = []
+    if (u.notifyTelegram && u.telegramChatId && telegramConfigured()) {
+      jobs.push(telegramSend(u.telegramChatId, `<b>EMIL — ${esc(n.title)}</b>\n${esc(n.body ?? '')}${link ? `\n${link}` : ''}`))
+    }
+    if (u.notifyEmail && emailConfigured()) {
+      jobs.push(emailSend(u.email, `EMIL — ${n.title}`, `<p><strong>${esc(n.title)}</strong></p><p>${esc(n.body ?? '')}</p>${link ? `<p><a href="${link}">Open in EMIL</a></p>` : ''}<p style="color:#888;font-size:12px">Research signal, not an execution trigger. Manage delivery in EMIL → Settings.</p>`))
+    }
+    await Promise.allSettled(jobs)
+  } catch (e) {
+    console.error('notification delivery failed', e)
+  }
+}
