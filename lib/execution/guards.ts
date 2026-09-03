@@ -67,7 +67,12 @@ export async function preTradeGuards(args: { userId: string; venueKey: string; p
   if (ticker) {
     if (quoteLatencyMs !== null && quoteLatencyMs > G.maxQuoteLatencyMs) throw new GuardError(503, `Quote latency ${quoteLatencyMs} ms exceeds ${G.maxQuoteLatencyMs} ms — venue is slow; not sending.`)
     const age = tsMs(ticker.ts) !== undefined ? Date.now() - (tsMs(ticker.ts) as number) : null
-    if (age !== null && age > G.maxQuoteAgeMs) throw new GuardError(503, `Quote is ${Math.round(age / 1000)}s old (limit ${G.maxQuoteAgeMs / 1000}s) — stale market data; not sending.`)
+    if (age !== null && age > G.maxQuoteAgeMs) {
+      // Live: refuse. Paper/sandbox venues (Gemini sandbox especially) stamp the LAST TRADE time, which
+      // can be minutes old on a quiet test book while the quote itself is fine — note it, don't block.
+      if (!paper) throw new GuardError(503, `Quote is ${Math.round(age / 1000)}s old (limit ${G.maxQuoteAgeMs / 1000}s) — stale market data; not sending.`)
+      notes.push(`quote timestamp ${Math.round(age / 1000)}s old (paper venue, allowed)`)
+    }
     if (ticker.bid && ticker.ask && ticker.ask > 0 && ticker.bid > 0) {
       const mid = (ticker.bid + ticker.ask) / 2
       spreadBps = ((ticker.ask - ticker.bid) / mid) * 1e4

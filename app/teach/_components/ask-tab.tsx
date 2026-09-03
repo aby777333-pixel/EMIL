@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   'What evidence supports your gold vs US yields view?',
 ]
 
-type Turn = { q: string; a: string; sources: any[] }
+type Turn = { q: string; a: string; sources: any[]; live?: { fetchedAt: string; sections: number; cached?: boolean } | null }
 
 export default function AskTab() {
   const [question, setQuestion] = useState('')
@@ -38,12 +38,17 @@ export default function AskTab() {
         throw new Error(d?.error ?? 'Ask EMIL failed')
       }
       let sources: any[] = []
+      let live: any = null
       try {
         sources = JSON.parse(decodeURIComponent(res.headers.get('X-Emil-Sources') ?? '%5B%5D'))
       } catch { /* provenance header optional */ }
+      try {
+        const lh = res.headers.get('X-Emil-Live')
+        if (lh) live = JSON.parse(decodeURIComponent(lh))
+      } catch { /* live header optional */ }
       setTurns((prev) => {
         const next = [...prev]
-        next[next.length - 1] = { ...next[next.length - 1], sources }
+        next[next.length - 1] = { ...next[next.length - 1], sources, live }
         return next
       })
       const reader = res.body.getReader()
@@ -87,6 +92,7 @@ export default function AskTab() {
             <div className="mt-1.5 rounded-md border border-border bg-background/40 p-3 text-[12px] text-slate-300 whitespace-pre-wrap leading-relaxed">
               {t.a || <span className="text-slate-500 animate-pulse">EMIL is searching its memory…</span>}
             </div>
+            {t.live ? <p className="mt-1 text-[10px] text-emerald-400/90"><span className="font-bold">[LIVE]</span> grounded in the cockpit's live context as of {new Date(t.live.fetchedAt).toLocaleTimeString()} ({t.live.sections} sections{t.live.cached ? ', cached' : ''}) — delayed research data, not execution prices.</p> : null}
             {t.sources.length > 0 ? (
               <div className="mt-1.5 space-y-0.5">
                 {t.sources.map((s: any) => (

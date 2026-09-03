@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions, requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { liveContext } from '@/lib/live-context'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -21,6 +22,11 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}))
     const question = String(body?.question ?? '').slice(0, 1000)
     if (!question.trim()) return NextResponse.json({ error: 'Question required' }, { status: 400 })
+
+    // Live context (spec §15): what the cockpit sees right now, alongside stored knowledge.
+    const userId = (session.user as any).id as string
+    const wantLive = body?.live !== false
+    const live = wantLive ? await liveContext(userId, !!(await requireAdmin(userId))).catch(() => null) : null
 
     const terms = words(question)
     const or = (fields: string[]) => terms.flatMap((t) => fields.map((f) => ({ [f]: { contains: t, mode: 'insensitive' as const } })))
@@ -88,11 +94,13 @@ export async function POST(req: Request) {
 - Always distinguish validated knowledge from unverified claims: prefix unverified material with "Source claims…" and state its validation status and confidence.
 - If contradictions exist on the topic, present both sides and when each may apply.
 - If the stored knowledge does not cover the question, say so plainly and suggest what to teach EMIL next. Never invent sources or results, never promise profits.
+- LIVE CONTEXT (when provided) is delayed research data and calculated views from the cockpit, not stored knowledge: cite it as [LIVE], quote the timestamp when it matters, and never present it as an execution price.
+- Never tell the user to buy or sell; you may describe what the data shows and what to research or watch.
 - Be concise and structured; short headings and bullets are fine.`,
       },
       {
         role: 'user',
-        content: `STORED KNOWLEDGE:\n${ctx.join('\n').slice(0, 24_000) || '(EMIL has not learned anything matching this topic yet.)'}\n\nQUESTION: ${question}`,
+        content: `${live ? `${live.text}\n\n` : ''}STORED KNOWLEDGE:\n${ctx.join('\n').slice(0, 22_000) || '(EMIL has not learned anything matching this topic yet.)'}\n\nQUESTION: ${question}`,
       },
     ]
 
@@ -143,6 +151,7 @@ export async function POST(req: Request) {
         'Content-Type': 'text/plain; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Emil-Sources': encodeURIComponent(JSON.stringify(sourceRefs.map(({ n, title, url, type, author }) => ({ n, title: title.slice(0, 120), url, type, author })))),
+        'X-Emil-Live': live ? encodeURIComponent(JSON.stringify({ fetchedAt: live.fetchedAt, sections: live.sections.length, cached: !!live.cached })) : '',
       },
     })
   } catch (e) {
