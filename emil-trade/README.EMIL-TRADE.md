@@ -15,13 +15,18 @@ Every EMIL surface (top-nav item, 🧠 EMIL chip, ABIN "Ask EMIL"/"Arm EMIL", co
 `https://serene-frangollo-a3c59c.netlify.app`. The cockpit links back here from the Global API
 Hub "Trade With EMIL" card, the sidebar "EMIL Trade" item and the ⌘K palette (all new-tab).
 
-**Deploy (manual, own Netlify site `emil-trade` / id `56cac256-2896-473c-b43a-dd8105162792`):**
+**Deploy (git-connected, own Netlify site `emil-trade` / id `56cac256-2896-473c-b43a-dd8105162792`):**
+the site is linked to the EMIL GitHub repo with **base directory `emil-trade`**, so a push to `main`
+that touches this folder builds it (Netlify skips the build when nothing under `emil-trade/` changed).
+Force a clean build with:
 
 ```bash
-cd emil-trade
-rm -rf .next
-npx netlify deploy --build --prod --site 56cac256-2896-473c-b43a-dd8105162792
+npx netlify api createSiteBuild --data '{"site_id":"56cac256-2896-473c-b43a-dd8105162792","clear_cache":true}'
 ```
+
+⚠️ Do NOT `netlify deploy --build` from this subfolder: the CLI resolves the project root to the git
+root (the cockpit repo), uploads static files + the middleware edge function but silently drops the
+Next.js server handler — every page 404s (learned 2026-09-03).
 
 The parent EMIL repo's Netlify site (`serene-frangollo-a3c59c`) builds from the repo root and
 ignores this folder (`tsconfig.json` excludes `emil-trade`). Never run `next build` here while a
