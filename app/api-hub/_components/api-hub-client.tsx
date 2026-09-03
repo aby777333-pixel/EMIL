@@ -58,6 +58,28 @@ const CRED_FIELDS: Record<string, { key: string; label: string; secret?: boolean
   static_token: [{ key: 'accessToken', label: 'Access token (30-day)', secret: true }],
 }
 
+// Extra reference links (testnet portal, guides, test funds) rendered next to
+// the Docs link. Skips anything equal to docsUrl so a link never shows twice.
+function LinkChips({ links, docsUrl, size = 'xs' }: { links?: { label: string; url: string }[]; docsUrl?: string; size?: 'xs' | 'sm' }) {
+  const list = (links ?? []).filter((l) => l?.url && l.url !== docsUrl)
+  if (list.length === 0) return null
+  return (
+    <>
+      {list.map((l) => (
+        <a
+          key={l.url}
+          href={l.url}
+          target="_blank"
+          rel="noreferrer"
+          className={`${size === 'sm' ? 'text-xs' : 'text-[11px]'} text-cyan-400/90 hover:underline flex items-center gap-1`}
+        >
+          {l.label} <ExternalLink className="h-3 w-3" />
+        </a>
+      ))}
+    </>
+  )
+}
+
 const PREVIEWS: Record<string, { fn: string; label: string }[]> = {
   dalalai: [
     { fn: 'predictions', label: 'AI predictions' },
@@ -380,6 +402,7 @@ export default function ApiHubClient() {
                     <a href={dp?.docsUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline flex items-center gap-1">
                       Docs <ExternalLink className="h-3 w-3" />
                     </a>
+                    <LinkChips links={dp?.links} docsUrl={dp?.docsUrl} size="sm" />
                   </div>
                 </div>
                 <div className="lg:col-span-2">
@@ -533,6 +556,7 @@ export default function ApiHubClient() {
                     <a href={p?.docsUrl} target="_blank" rel="noreferrer" className="ml-auto text-[11px] text-cyan-400 hover:underline flex items-center gap-1">
                       Docs <ExternalLink className="h-3 w-3" />
                     </a>
+                    <LinkChips links={p?.links} docsUrl={p?.docsUrl} />
                   </div>
                 )}
               </div>

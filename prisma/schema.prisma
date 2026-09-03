@@ -298,6 +298,7 @@ model IndiaApiProvider {
   capabilities   String    // comma list: quotes,historical,websocket,orders,portfolio,margins
   rateLimitNote  String?
   pricingNote    String?
+  links          String?   // JSON array of { label, url } — testnet portals, guides, test-fund pages
   status         String    @default("not_configured") // not_configured | configured | connected | error
   isPrimaryData  Boolean   @default(false)
   isPrimaryExec  Boolean   @default(false)

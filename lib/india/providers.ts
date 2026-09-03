@@ -16,6 +16,8 @@ export type IndiaProviderDef = {
   rateLimitNote: string
   pricingNote: string
   markets?: string // comma list of Market.key; defaults to 'india'
+  // Extra reference links shown beside "Docs" (testnet portals, guides, test funds…).
+  links?: { label: string; url: string }[]
 }
 
 export const INDIA_PROVIDERS: IndiaProviderDef[] = [

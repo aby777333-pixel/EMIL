@@ -9,11 +9,23 @@ export const dynamic = 'force-dynamic'
 
 const mask = (v?: string | null) => (v ? `${v.slice(0, 3)}••••${v.slice(-2)}` : null)
 
+// links is stored as a JSON string; a malformed row must never break the hub.
+function parseLinks(raw?: string | null): { label: string; url: string }[] {
+  if (!raw) return []
+  try {
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.filter((l) => l && typeof l.label === 'string' && typeof l.url === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+
 function publicProvider(p: any) {
   return {
     id: p.id, key: p.key, markets: p.markets, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
     authType: p.authType, authNote: p.authNote, exchanges: p.exchanges, capabilities: p.capabilities,
-    rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote, status: p.status,
+    rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote, links: parseLinks(p.links), status: p.status,
     isPrimaryData: p.isPrimaryData, isPrimaryExec: p.isPrimaryExec,
     hasApiKey: !!p.apiKey, hasApiSecret: !!p.apiSecret, hasAccessToken: !!p.accessToken,
     apiKeyMasked: mask(p.apiKey), clientCode: p.clientCode,

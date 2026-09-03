@@ -2,6 +2,8 @@
 // Each test performs a lightweight authenticated read (profile/funds) against
 // the provider's REST API. No orders are ever placed from here.
 
+import { createHmac } from 'node:crypto'
+
 type ProviderRow = {
   key: string
   baseUrl: string
@@ -104,6 +106,83 @@ export async function testProviderConnection(p: ProviderRow): Promise<TestResult
         // Breeze requires a per-request checksum on most endpoints; treat saved
         // credentials as configured and verify on the first live data call.
         return { ok: true, message: 'Credentials saved. Breeze uses per-request checksums — the link is fully verified on the first live data request.' }
+      }
+      case 'deribit':
+      case 'deribit_testnet': {
+        const env = p.key === 'deribit_testnet' ? 'Testnet' : 'Live'
+        if (!p.apiKey || !p.apiSecret) return { ok: false, message: `Client ID (API key) and client secret are required — create them under Account → API on ${env === 'Testnet' ? 'test.deribit.com' : 'deribit.com'}.` }
+        const auth = await timeoutFetch(
+          `${p.baseUrl}/public/auth?grant_type=client_credentials&client_id=${encodeURIComponent(p.apiKey)}&client_secret=${encodeURIComponent(p.apiSecret)}`,
+          { headers: { Accept: 'application/json' } },
+        )
+        const authBody = await auth.json().catch(() => null)
+        const token = authBody?.result?.access_token
+        if (!token) {
+          const err = authBody?.error
+          if (err?.code === 13004 || /invalid_credentials/i.test(err?.message ?? '')) return { ok: false, message: `Deribit ${env} rejected the client ID / secret. Testnet keys only work on the Testnet row and live keys only on the Live row.` }
+          return { ok: false, message: err?.message ? `Deribit ${env}: ${err.message} (code ${err.code}).` : `Deribit ${env} responded ${auth.status}.` }
+        }
+        const sum = await timeoutFetch(`${p.baseUrl}/private/get_account_summaries`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } })
+        const sumBody = await sum.json().catch(() => null)
+        const summaries = sumBody?.result?.summaries
+        if (Array.isArray(summaries) && summaries.length) {
+          const equity = summaries.map((s: any) => `${s.currency} ${Number(s.equity ?? 0).toFixed(4)}`).join(', ')
+          return { ok: true, message: `Connected to Deribit ${env} — equity: ${equity}.` }
+        }
+        return { ok: true, message: `Connected to Deribit ${env} — OAuth token issued (scope: ${authBody.result.scope ?? 'n/a'}).` }
+      }
+      case 'delta_exchange':
+      case 'delta_exchange_testnet': {
+        const env = p.key === 'delta_exchange_testnet' ? 'Demo/Testnet' : 'Live'
+        if (!p.apiKey || !p.apiSecret) return { ok: false, message: `API key and secret are required — create them under Profile → API Keys on ${env === 'Live' ? 'india.delta.exchange' : 'demo.delta.exchange'} and whitelist EMIL's server IP.` }
+        const path = '/v2/wallet/balances'
+        const ts = Math.floor(Date.now() / 1000).toString()
+        const signature = createHmac('sha256', p.apiSecret).update(`GET${ts}${path}`).digest('hex')
+        const res = await timeoutFetch(`${p.baseUrl}${path}`, {
+          headers: { 'api-key': p.apiKey, timestamp: ts, signature, 'User-Agent': 'emil-cockpit/1.0', Accept: 'application/json' },
+        })
+        const body = await res.json().catch(() => null)
+        if (res.ok && body?.success) {
+          const rows: any[] = Array.isArray(body.result) ? body.result : []
+          const wallet = rows.slice(0, 4).map((r) => `${r.asset_symbol ?? r.asset?.symbol ?? '?'} ${r.balance ?? r.available_balance ?? '0'}`).join(', ')
+          return { ok: true, message: `Connected to Delta Exchange ${env} — wallet: ${wallet || 'empty'}.` }
+        }
+        const code: string | undefined = body?.error?.code
+        if (code === 'ip_not_whitelisted_for_api_key') {
+          const ip = body?.error?.context?.client_ip
+          return { ok: false, message: `Delta ${env} recognised the key but this server's IP${ip ? ` (${ip})` : ''} is not on the key's allow-list. Edit the API key on Delta and add that IP, then test again.` }
+        }
+        if (code === 'invalid_api_key') return { ok: false, message: `Delta ${env} says the API key is invalid for this environment. Demo keys only work on the Demo/Testnet row and live keys only on the Live row.` }
+        if (code === 'expired_signature' || code === 'signature_mismatch' || code === 'invalid_signature') return { ok: false, message: `Delta ${env} rejected the request signature (${code}) — re-check the API secret.` }
+        return { ok: false, message: code ? `Delta Exchange ${env} error: ${code}.` : `Delta ${env} responded ${res.status}.` }
+      }
+      case 'gemini':
+      case 'gemini_sandbox': {
+        const env = p.key === 'gemini_sandbox' ? 'Sandbox' : 'Live'
+        if (!p.apiKey || !p.apiSecret) return { ok: false, message: `API key and secret are required — create them under Settings → API on ${env === 'Sandbox' ? 'exchange.sandbox.gemini.com' : 'exchange.gemini.com'}.` }
+        const payload = Buffer.from(JSON.stringify({ request: '/v1/balances', nonce: Date.now() })).toString('base64')
+        const signature = createHmac('sha384', p.apiSecret).update(payload).digest('hex')
+        const res = await timeoutFetch(`${p.baseUrl}/v1/balances`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+            'Content-Length': '0',
+            'X-GEMINI-APIKEY': p.apiKey,
+            'X-GEMINI-PAYLOAD': payload,
+            'X-GEMINI-SIGNATURE': signature,
+            'Cache-Control': 'no-cache',
+          },
+        })
+        const body = await res.json().catch(() => null)
+        if (res.ok && Array.isArray(body)) {
+          const bal = body.filter((b: any) => Number(b?.amount) > 0).slice(0, 4).map((b: any) => `${b.currency} ${b.amount}`).join(', ')
+          return { ok: true, message: `Connected to Gemini ${env} — balances: ${bal || 'empty'}.` }
+        }
+        const reason: string | undefined = body?.reason
+        if (reason === 'InvalidApiKey') return { ok: false, message: `Gemini ${env} says the API key is invalid for this environment. Sandbox keys only work on the Sandbox row and live keys only on the Live row.` }
+        if (reason === 'InvalidSignature') return { ok: false, message: `Gemini ${env} rejected the signature — re-check the API secret.` }
+        if (reason === 'InvalidNonce') return { ok: false, message: `Gemini ${env} rejected the nonce — the key was used with a higher nonce elsewhere; create a dedicated key for EMIL.` }
+        return { ok: false, message: body?.message ? `Gemini ${env}: ${body.message}` : `Gemini ${env} responded ${res.status}.` }
       }
       default: {
         // Brokers without a bespoke tester (TOTP/OTP or checksum login flows

@@ -516,19 +516,20 @@ async function main() {
 
   for (const p of [...INDIA_PROVIDERS, ...GLOBAL_BROKERS]) {
     const markets = p.markets ?? 'india';
+    const links = p.links?.length ? JSON.stringify(p.links) : null;
     await prisma.indiaApiProvider.upsert({
       where: { key: p.key },
       update: {
         name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
         authType: p.authType, authNote: p.authNote, exchanges: p.exchanges,
         capabilities: p.capabilities, rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote,
-        markets,
+        markets, links,
       },
       create: {
         key: p.key, name: p.name, vendor: p.vendor, docsUrl: p.docsUrl, baseUrl: p.baseUrl,
         authType: p.authType, authNote: p.authNote, exchanges: p.exchanges,
         capabilities: p.capabilities, rateLimitNote: p.rateLimitNote, pricingNote: p.pricingNote,
-        markets,
+        markets, links,
         isPrimaryData: p.key === 'dalalai',
       },
     });
