@@ -126,6 +126,8 @@ export function CockpitShell({ children }: { children: React.ReactNode }) {
             <Link
               key={item?.href}
               href={item?.href ?? '/'}
+              target={(item as { external?: boolean })?.external ? '_blank' : undefined}
+              rel={(item as { external?: boolean })?.external ? 'noopener noreferrer' : undefined}
               onClick={() => setOpen(false)}
               className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 active ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-accent border border-transparent'

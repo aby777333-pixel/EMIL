@@ -1,0 +1,579 @@
+@import "tailwindcss";
+
+:root {
+  /* EMIL TRADE Design System — derived from brand logo
+     Logo gradient: Teal #00D4AA → Cyan #00B4D8 → Deep Teal #007A8C
+     "GIO" cyan: #00B4D8 | "RAPTOR" silver-gray adaptive              */
+  --bg-primary: #060D16;
+  --bg-surface: #0B1422;
+  --bg-elevated: #111D2E;
+  --bg-hover: #162638;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --text-primary: #EAF0FA;
+  --text-secondary: #7A8BA8;
+  --text-muted: #4A5568;
+  --accent: #00B4D8;
+  --accent-hover: #0091B3;
+  --accent-glow: rgba(0, 180, 216, 0.22);
+  --accent-green: #00D4AA;
+  --accent-green-glow: rgba(0, 212, 170, 0.2);
+  --teal: #00A5A8;
+  --teal-glow: rgba(0, 165, 168, 0.2);
+  --gold: #F0A500;
+  --gold-glow: rgba(240, 165, 0, 0.2);
+  --profit: #00C896;
+  --loss: #FF4560;
+  --buy: #00C896;
+  --sell: #FF4560;
+  --buy-bg: rgba(0, 200, 150, 0.1);
+  --sell-bg: rgba(255, 69, 96, 0.1);
+  --buy-hover: rgba(0, 200, 150, 0.2);
+  --sell-hover: rgba(255, 69, 96, 0.2);
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-profit: var(--profit);
+  --color-loss: var(--loss);
+  --color-accent: var(--accent);
+  --color-buy: var(--buy);
+  --color-sell: var(--sell);
+  --color-gold: var(--gold);
+  --color-teal: var(--teal);
+  --color-muted: var(--text-muted);
+  --color-secondary: var(--text-secondary);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+}
+
+[data-theme="light"] {
+  --bg-primary: #F5F7FA;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #EEF1F5;
+  --bg-hover: #E2E6EC;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --text-primary: #0F1A2E;
+  --text-secondary: #3E4C66;
+  --text-muted: #7A8599;
+  --accent: #0091B3;
+  --accent-hover: #007A8C;
+  --accent-green: #00B89C;
+  --gold: #D49000;
+}
+
+/* Tailwind v4 preflight handles reset — no manual * reset needed */
+
+body {
+  font-family: var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+@keyframes flash-green {
+  0% { background-color: rgba(0, 200, 150, 0.3); }
+  100% { background-color: transparent; }
+}
+@keyframes flash-red {
+  0% { background-color: rgba(255, 69, 96, 0.3); }
+  100% { background-color: transparent; }
+}
+.flash-up { animation: flash-green 150ms ease-out; }
+.flash-down { animation: flash-red 150ms ease-out; }
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.mono {
+  font-family: var(--font-mono, 'JetBrains Mono'), 'DM Mono', 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Panel system */
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.panel-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+/* Card system — glassmorphism */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  backdrop-filter: blur(20px);
+}
+.card:hover {
+  border-color: rgba(0, 180, 216, 0.25);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 20px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+/* Stat card */
+.stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.stat-card:hover {
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 15px var(--accent-glow);
+}
+
+/* Tool card */
+.tool-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.tool-card:hover {
+  border-color: rgba(0, 180, 216, 0.2);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3), 0 0 12px var(--accent-glow);
+}
+
+/* Button glow effects */
+.btn-glow:hover {
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+.btn-buy-glow:hover {
+  box-shadow: 0 0 16px rgba(0, 200, 150, 0.35);
+}
+.btn-sell-glow:hover {
+  box-shadow: 0 0 16px rgba(255, 69, 96, 0.35);
+}
+.btn-gold-glow:hover {
+  box-shadow: 0 0 16px var(--gold-glow);
+}
+
+/* Glass effect utility */
+.glass {
+  background: rgba(11, 20, 34, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+}
+
+/* ── Blinking / Pulsing Status Indicators ── */
+@keyframes blink-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes blink-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes blink-success {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+@keyframes pulse-glow-cyan {
+  0%, 100% { box-shadow: 0 0 4px rgba(0, 180, 216, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(0, 180, 216, 0.6); }
+}
+@keyframes pulse-glow-red {
+  0%, 100% { box-shadow: 0 0 4px rgba(229, 9, 20, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(229, 9, 20, 0.6); }
+}
+@keyframes pulse-glow-amber {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 179, 0, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(255, 179, 0, 0.6); }
+}
+@keyframes pulse-glow-green {
+  0%, 100% { box-shadow: 0 0 4px rgba(0, 200, 83, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(0, 200, 83, 0.6); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-top {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes slide-in-bottom {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes border-pulse-red {
+  0%, 100% { border-color: rgba(229, 9, 20, 0.2); }
+  50% { border-color: rgba(229, 9, 20, 0.8); }
+}
+@keyframes border-pulse-amber {
+  0%, 100% { border-color: rgba(255, 179, 0, 0.2); }
+  50% { border-color: rgba(255, 179, 0, 0.8); }
+}
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.blink-danger { animation: blink-danger 1s ease-in-out infinite; }
+.blink-warning { animation: blink-warning 1.5s ease-in-out infinite; }
+.blink-success { animation: blink-success 2s ease-in-out infinite; }
+.pulse-cyan { animation: pulse-glow-cyan 2s ease-in-out infinite; }
+.pulse-red { animation: pulse-glow-red 1.5s ease-in-out infinite; }
+.pulse-amber { animation: pulse-glow-amber 2s ease-in-out infinite; }
+.pulse-green { animation: pulse-glow-green 2s ease-in-out infinite; }
+.slide-in-right { animation: slide-in-right 0.3s ease-out; }
+.slide-in-top { animation: slide-in-top 0.2s ease-out; }
+.slide-in-bottom { animation: slide-in-bottom 0.2s ease-out; }
+.border-pulse-red { animation: border-pulse-red 1.5s ease-in-out infinite; }
+.border-pulse-amber { animation: border-pulse-amber 2s ease-in-out infinite; }
+
+/* Tab active states with color coding */
+.tab-active-cyan {
+  border-bottom: 2px solid #00B4D8;
+  color: #00B4D8;
+  animation: pulse-glow-cyan 3s ease-in-out infinite;
+}
+.tab-active-red {
+  border-bottom: 2px solid #E50914;
+  color: #E50914;
+  animation: pulse-glow-red 2s ease-in-out infinite;
+}
+.tab-active-green {
+  border-bottom: 2px solid #00C853;
+  color: #00C853;
+  animation: pulse-glow-green 3s ease-in-out infinite;
+}
+.tab-active-amber {
+  border-bottom: 2px solid #FFB300;
+  color: #FFB300;
+  animation: pulse-glow-amber 2.5s ease-in-out infinite;
+}
+.tab-active-purple {
+  border-bottom: 2px solid #8b5cf6;
+  color: #8b5cf6;
+}
+
+/* Status dot animations */
+.status-dot-live {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #E50914;
+  animation: blink-danger 1s ease-in-out infinite;
+}
+.status-dot-connected {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #00C853;
+  animation: blink-success 2s ease-in-out infinite;
+}
+.status-dot-warning {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #FFB300;
+  animation: blink-warning 1.5s ease-in-out infinite;
+}
+
+/* Scan line overlay for monitoring panels */
+.scan-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,180,216,0.4), transparent);
+  animation: scan-line 3s linear infinite;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   GENTLEMAN'S TERMINAL — Client Portal design language
+   Scoped under .gentleman so the trading platform & dealer keep their
+   existing cyan-accented design. Apply <div className="gentleman">
+   on portal/auth shells.
+   ────────────────────────────────────────────────────────────────────── */
+.gentleman {
+  --g-bg-void: #0A0A0B;
+  --g-bg-surface: #111114;
+  --g-bg-elevated: #16161A;
+  --g-bg-glass: rgba(22, 22, 26, 0.72);
+
+  --g-border-hair: rgba(255, 255, 255, 0.06);
+  --g-border-soft: rgba(255, 255, 255, 0.10);
+  --g-border-strong: rgba(255, 255, 255, 0.18);
+
+  --g-text-primary: #F5F5F7;
+  --g-text-secondary: #A1A1AA;
+  --g-text-muted: #6B6B73;
+
+  --g-accent: #DC2626;
+  --g-accent-glow: #EF4444;
+  --g-accent-deep: #991B1B;
+
+  --g-buy: #10B981;
+  --g-sell: #EF4444;
+  --g-warn: #F59E0B;
+  --g-info: #3B82F6;
+
+  --g-pnl-positive: #34D399;
+  --g-pnl-negative: #F87171;
+  --g-pnl-neutral: #71717A;
+
+  background-color: var(--g-bg-void);
+  color: var(--g-text-primary);
+  font-family: var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.gentleman .num,
+.gentleman input.num {
+  font-family: var(--font-mono, 'JetBrains Mono'), 'SF Mono', 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form primitives */
+.gentleman .g-field {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--g-border-soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--g-text-primary);
+  outline: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.gentleman .g-field::placeholder { color: var(--g-text-muted); }
+.gentleman .g-field:hover { border-color: var(--g-border-strong); }
+.gentleman .g-field:focus {
+  border-color: var(--g-accent);
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.gentleman .g-btn-primary {
+  width: 100%;
+  background: var(--g-accent);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--g-accent);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.gentleman .g-btn-primary:hover { background: var(--g-accent-glow); border-color: var(--g-accent-glow); }
+.gentleman .g-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.gentleman .g-btn-secondary {
+  width: 100%;
+  background: transparent;
+  color: var(--g-text-primary);
+  font-weight: 500;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--g-border-soft);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.gentleman .g-btn-secondary:hover {
+  border-color: var(--g-border-strong);
+  background: rgba(255,255,255,0.03);
+}
+
+/* Card / surface */
+.gentleman .g-card {
+  background: var(--g-bg-surface);
+  border: 1px solid var(--g-border-hair);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Hairline divider with soft "or" */
+.gentleman .g-divider {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--g-text-muted);
+}
+.gentleman .g-divider::before,
+.gentleman .g-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--g-border-hair);
+}
+
+/* Skeleton shimmer */
+@keyframes g-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.gentleman .g-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0.04) 100%);
+  background-size: 200% 100%;
+  animation: g-shimmer 1400ms linear infinite;
+  border-radius: 6px;
+}
+
+/* Form-level shake on auth error */
+@keyframes g-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+.gentleman .g-shake { animation: g-shake 320ms ease-in-out; }
+
+/* Slow drifting market ticker (login right-pane ambience) */
+@keyframes g-drift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+.gentleman .g-drift {
+  animation: g-drift 60s linear infinite;
+}
+
+/* Page fade-in (180ms ease-out, no slide) */
+@keyframes g-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.gentleman .g-fade-in { animation: g-fade-in 180ms ease-out both; }
+
+/* QuickTrade "Trade" button: alternating green/red blink (one blink green,
+   the next red). Animated properties override the button's resting styles
+   while the animation runs; the open state uses a steady style instead. */
+@keyframes raptor-trade-blink {
+  0%, 42% {
+    color: #00C27A;
+    border-color: rgba(0, 194, 122, 0.85);
+    background: linear-gradient(180deg, rgba(0, 194, 122, 0.32) 0%, rgba(0, 194, 122, 0.1) 100%);
+    box-shadow: 0 0 12px rgba(0, 194, 122, 0.55), 0 0 3px rgba(0, 194, 122, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    text-shadow: 0 0 8px rgba(0, 194, 122, 0.9);
+  }
+  50%, 92% {
+    color: #FF5252;
+    border-color: rgba(255, 82, 82, 0.85);
+    background: linear-gradient(180deg, rgba(255, 82, 82, 0.32) 0%, rgba(255, 82, 82, 0.1) 100%);
+    box-shadow: 0 0 12px rgba(255, 82, 82, 0.55), 0 0 3px rgba(255, 82, 82, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    text-shadow: 0 0 8px rgba(255, 82, 82, 0.9);
+  }
+  100% {
+    color: #00C27A;
+    border-color: rgba(0, 194, 122, 0.85);
+    background: linear-gradient(180deg, rgba(0, 194, 122, 0.32) 0%, rgba(0, 194, 122, 0.1) 100%);
+    box-shadow: 0 0 12px rgba(0, 194, 122, 0.55), 0 0 3px rgba(0, 194, 122, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    text-shadow: 0 0 8px rgba(0, 194, 122, 0.9);
+  }
+}
+.raptor-trade-blink {
+  border: 1px solid rgba(0, 194, 122, 0.85);
+  color: #00C27A;
+  animation: raptor-trade-blink 2.4s ease-in-out infinite;
+}
+
+/* Hedge engine chip: color blink (violet ⇄ cyan) in the timeframe bar. */
+@keyframes raptor-hedge-blink {
+  0%, 42% {
+    color: #CE93D8;
+    border-color: rgba(171, 71, 188, 0.85);
+    background: linear-gradient(180deg, rgba(171, 71, 188, 0.3) 0%, rgba(171, 71, 188, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(171, 71, 188, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(171, 71, 188, 0.9);
+  }
+  50%, 92% {
+    color: #00B4D8;
+    border-color: rgba(0, 180, 216, 0.85);
+    background: linear-gradient(180deg, rgba(0, 180, 216, 0.3) 0%, rgba(0, 180, 216, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(0, 180, 216, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(0, 180, 216, 0.9);
+  }
+  100% {
+    color: #CE93D8;
+    border-color: rgba(171, 71, 188, 0.85);
+    background: linear-gradient(180deg, rgba(171, 71, 188, 0.3) 0%, rgba(171, 71, 188, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(171, 71, 188, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(171, 71, 188, 0.9);
+  }
+}
+.raptor-hedge-blink {
+  border: 1px solid rgba(171, 71, 188, 0.85);
+  color: #CE93D8;
+  animation: raptor-hedge-blink 2.8s ease-in-out infinite;
+}
+
+/* Trade Scanner chip: color blink (scanner blue ⇄ signal green). */
+@keyframes raptor-scan-blink {
+  0%, 42% {
+    color: #29ABE2;
+    border-color: rgba(41, 171, 226, 0.85);
+    background: linear-gradient(180deg, rgba(41, 171, 226, 0.3) 0%, rgba(41, 171, 226, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(41, 171, 226, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(41, 171, 226, 0.9);
+  }
+  50%, 92% {
+    color: #00C27A;
+    border-color: rgba(0, 194, 122, 0.85);
+    background: linear-gradient(180deg, rgba(0, 194, 122, 0.3) 0%, rgba(0, 194, 122, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(0, 194, 122, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(0, 194, 122, 0.9);
+  }
+  100% {
+    color: #29ABE2;
+    border-color: rgba(41, 171, 226, 0.85);
+    background: linear-gradient(180deg, rgba(41, 171, 226, 0.3) 0%, rgba(41, 171, 226, 0.08) 100%);
+    box-shadow: 0 0 12px rgba(41, 171, 226, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(41, 171, 226, 0.9);
+  }
+}
+.raptor-scan-blink {
+  border: 1px solid rgba(41, 171, 226, 0.85);
+  color: #29ABE2;
+  animation: raptor-scan-blink 3.2s ease-in-out infinite;
+}
+
+/* EMIL chip: gold ⇄ ice-blue color blink. */
+@keyframes raptor-emil-blink {
+  0%, 42% {
+    color: #FFD54F;
+    border-color: rgba(255, 213, 79, 0.85);
+    background: linear-gradient(180deg, rgba(255, 213, 79, 0.28) 0%, rgba(255, 213, 79, 0.07) 100%);
+    box-shadow: 0 0 12px rgba(255, 213, 79, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(255, 213, 79, 0.9);
+  }
+  50%, 92% {
+    color: #80D8FF;
+    border-color: rgba(128, 216, 255, 0.85);
+    background: linear-gradient(180deg, rgba(128, 216, 255, 0.28) 0%, rgba(128, 216, 255, 0.07) 100%);
+    box-shadow: 0 0 12px rgba(128, 216, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(128, 216, 255, 0.9);
+  }
+  100% {
+    color: #FFD54F;
+    border-color: rgba(255, 213, 79, 0.85);
+    background: linear-gradient(180deg, rgba(255, 213, 79, 0.28) 0%, rgba(255, 213, 79, 0.07) 100%);
+    box-shadow: 0 0 12px rgba(255, 213, 79, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 0 8px rgba(255, 213, 79, 0.9);
+  }
+}
+.raptor-emil-blink {
+  border: 1px solid rgba(255, 213, 79, 0.85);
+  color: #FFD54F;
+  animation: raptor-emil-blink 3.6s ease-in-out infinite;
+}

@@ -7,7 +7,9 @@
 import { Panel } from '@/components/cockpit/panel'
 import { Radio, ExternalLink, Landmark } from 'lucide-react'
 
-const EMIL_PLATFORM_URL = 'https://dashing-hamster-0028ed.netlify.app/'
+import { emilTradeTerminalUrl } from '@/lib/emil-trade'
+
+const EMIL_PLATFORM_URL = emilTradeTerminalUrl()
 
 const AVAILABLE = ['Forex', 'Precious Metals', 'Indices CFDs', 'Energies CFDs', 'Crypto CFDs']
 const COMING = ['Global equities', 'Country stock markets', 'ETFs', 'Futures', 'Options', 'Fixed income']
@@ -29,18 +31,18 @@ export default function EmilPlatformCard() {
         {/* Option B — EMIL native platform */}
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5"><Radio className="h-4 w-4" /> OPTION B — EMIL TRADING PLATFORM</p>
+            <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5"><Radio className="h-4 w-4" /> OPTION B — EMIL TRADE (NATIVE PLATFORM)</p>
             <a
               href={EMIL_PLATFORM_URL}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 transition-colors"
             >
-              CONNECT TO EMIL <ExternalLink className="h-3 w-3" />
+              OPEN EMIL TRADE <ExternalLink className="h-3 w-3" />
             </a>
           </div>
           <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
-            EMIL&apos;s own integrated trading environment — no external broker account required.
+            EMIL Trade is EMIL&apos;s own trading terminal — opens in a new tab, no external broker account required.
           </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {AVAILABLE.map((a) => (
@@ -53,7 +55,7 @@ export default function EmilPlatformCard() {
             ))}
           </div>
           <p className="text-[10px] text-amber-300/80 mt-2">
-            Honest status: the EMIL platform currently runs on a demo/simulated price feed while the live liquidity-provider
+            Honest status: EMIL Trade currently runs on a demo/simulated price feed while the live liquidity-provider
             integration is completed — treat it as a paper environment, clearly distinct from live external-broker trading.
           </p>
         </div>

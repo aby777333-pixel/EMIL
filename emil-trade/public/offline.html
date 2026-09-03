@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>EMIL Trade — offline</title>
+  <style>
+    html,body{height:100%;margin:0;background:#060D16;color:#e6edf3;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px}
+    img{width:72px;height:72px;opacity:.9}
+    h1{font-size:18px;margin:0;font-weight:700}
+    p{font-size:13px;color:#8b98a5;max-width:320px;line-height:1.5;margin:0}
+    button{margin-top:8px;background:#0091D5;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img src="/emil-trade-mark.svg" alt="EMIL Trade" />
+    <h1>You're offline</h1>
+    <p>EMIL Trade needs a live connection to show real prices and your positions. Reconnect and try again — nothing is executed while offline.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>

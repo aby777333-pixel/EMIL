@@ -1,4 +1,5 @@
 'use client'
+import { openEmilTrade } from '@/lib/emil-trade'
 import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText } from 'lucide-react'
 
 // EMIL command palette — Ctrl/⌘+K from anywhere. Navigation for the cockpit,
@@ -103,10 +104,10 @@ export function CommandPalette() {
           </>
         ) : null}
         <CommandSeparator />
-        <CommandGroup heading="EMIL Trading Platform">
-          <CommandItem value="EMIL Trading Platform native terminal raptor" onSelect={() => { setOpen(false); window.open('https://dashing-hamster-0028ed.netlify.app/', '_blank', 'noopener') }}>
+        <CommandGroup heading="EMIL Trade">
+          <CommandItem value="EMIL Trade native trading platform terminal" onSelect={() => { setOpen(false); openEmilTrade() }}>
             <Radio className="mr-2 h-4 w-4 text-emerald-400" />
-            <span>Open the EMIL native trading platform</span>
+            <span>Open EMIL Trade (native trading platform)</span>
             <ExternalLink className="ml-2 h-3 w-3 text-slate-500" />
           </CommandItem>
           <CommandItem value="Ask EMIL research question" onSelect={() => go('/teach')}>

@@ -1,0 +1,5 @@
+-- Applied to leumpgkfillgeyyfptef on 2026-07-20 via MCP (partial_close_position_rpc).
+-- Additive: partial position close for the QuickTrade Take-Profit ladder.
+-- See the live definition: mirrors close_position's PnL + swap math on the
+-- closed fraction only; fraction >= 1 (or dust remainder) delegates to the
+-- untouched public.close_position. authenticated-only EXECUTE.

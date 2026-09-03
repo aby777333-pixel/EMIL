@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NEXT_PUBLIC_SUPABASE_URL = "https://leumpgkfillgeyyfptef.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxldW1wZ2tmaWxsZ2V5eWZwdGVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzA0NzEsImV4cCI6MjA5MDYwNjQ3MX0.5XRti-gTh1KOuTE_xogRY1Kq1rgEtzela_ScA1-K1Zw"
+  NEXT_PUBLIC_SITE_URL = "https://emil-trade.netlify.app"
+  NEXT_PUBLIC_EMIL_COCKPIT_URL = "https://serene-frangollo-a3c59c.netlify.app"
+  NEXT_PUBLIC_TWELVEDATA_API_KEY = "8e7b38f50f1849df8af9553a325b6521"
+  TWELVEDATA_API_KEY = "8e7b38f50f1849df8af9553a325b6521"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
