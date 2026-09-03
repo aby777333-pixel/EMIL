@@ -26,8 +26,7 @@ import {
   Building2,
   Layers,
   Menu,
-  X,
-} from 'lucide-react';
+  X, Tv, MessagesSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import VoiceTrading from '@/components/trading/VoiceTrading';
@@ -53,6 +52,8 @@ const menuCategories: MenuCategory[] = [
     items: [
       { href: '/terminal', icon: <LineChart size={14} />, label: 'Terminal', desc: 'Full trading terminal' },
       { href: '/terminal/abin', icon: <Brain size={14} />, label: 'ABIN', desc: 'Advanced Brokerage Intelligence Network' },
+      { href: '/terminal/tv', icon: <Tv size={14} />, label: 'Live TV', desc: 'Bloomberg, CNBC, Yahoo Finance and more' },
+      { href: '/terminal/chat', icon: <MessagesSquare size={14} />, label: 'Live Chat', desc: 'Traders community floor' },
       { href: EMIL_COCKPIT_URL, icon: <Bot size={14} />, label: 'EMIL', desc: 'EMIL Control Cockpit — opens the EMIL app' },
       { href: '/dashboard/markets', icon: <BarChart3 size={14} />, label: 'Markets', desc: 'Market watch' },
       { href: '/dashboard/orders', icon: <Activity size={14} />, label: 'Orders', desc: 'Order management' },

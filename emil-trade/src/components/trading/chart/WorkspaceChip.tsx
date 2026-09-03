@@ -26,6 +26,8 @@ const WINDOW_OPTIONS: Array<{ id: string; label: string }> = [
   { id: '/terminal/world', label: 'World' },
   { id: '/terminal/scan-trade', label: 'Scan' },
   { id: '/terminal/hedge-trade', label: 'Hedge' },
+  { id: '/terminal/tv', label: 'Live TV' },
+  { id: '/terminal/chat', label: 'Chat' },
 ];
 
 function loadWs(): Workspace[] {

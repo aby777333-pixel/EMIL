@@ -18,6 +18,8 @@ import dynamic from 'next/dynamic';
 // Market Insights module — lazy-loaded so the terminal bundle is untouched
 // unless the trader actually opens it.
 const InsightsPanel = dynamic(() => import('../insights/InsightsPanel'), { ssr: false });
+const LiveTvPanel = dynamic(() => import('../media/LiveTvPanel'), { ssr: false });
+const LiveChatPanel = dynamic(() => import('../media/LiveChatPanel'), { ssr: false });
 const HedgePanel = dynamic(() => import('../hedge/HedgePanel'), { ssr: false });
 const ScannerPanel = dynamic(() => import('../scanner/ScannerPanel'), { ssr: false });
 const RiskPanel = dynamic(() => import('../insights/RiskPanel'), { ssr: false });
@@ -208,6 +210,9 @@ export default function ChartSourceSwitcher({
   const [scannerOpen, setScannerOpen] = useState(false);
   // EMIL — Evolving Market Intelligence Lab (entitlement emil; fail-open).
   const [emilEnabled, setEmilEnabled] = useState(true);
+  // Live TV + traders' Live Chat — floating panels (no backdrop), see components/trading/media.
+  const [tvOpen, setTvOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   // EMIL console retired — the chip opens the EMIL Control Cockpit (see lib/emil-link).
 
   // Trader Utility Widget Suite + nice-to-know chip collapse.
@@ -1153,6 +1158,26 @@ export default function ChartSourceSwitcher({
           >
             🛰 ABIN
           </button>
+          <button
+            onClick={() => setTvOpen((o) => !o)}
+            title="LIVE TV — Bloomberg, Yahoo Finance, CNBC, Sky, DW, CNA and your own channels, floating over the chart"
+            className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 font-mono text-[9px] font-bold transition-all hover:brightness-125"
+            style={tvOpen
+              ? { color: '#FF7043', border: '1px solid rgba(255,112,67,0.9)', backgroundColor: 'rgba(255,112,67,0.18)' }
+              : { color: '#FF7043', border: '1px solid rgba(255,112,67,0.5)', backgroundColor: 'rgba(255,112,67,0.08)' }}
+          >
+            📺 TV
+          </button>
+          <button
+            onClick={() => setChatOpen((o) => !o)}
+            title="LIVE CHAT — the traders' floor: market rooms, live presence, $SYMBOL links load the chart"
+            className="flex shrink-0 items-center gap-1 rounded px-2 py-0.5 font-mono text-[9px] font-bold transition-all hover:brightness-125"
+            style={chatOpen
+              ? { color: '#4DD0E1', border: '1px solid rgba(77,208,225,0.9)', backgroundColor: 'rgba(77,208,225,0.18)' }
+              : { color: '#4DD0E1', border: '1px solid rgba(77,208,225,0.5)', backgroundColor: 'rgba(77,208,225,0.08)' }}
+          >
+            💬 CHAT
+          </button>
           <FlightCheck />
         </>}
         trailing={<>
@@ -1458,6 +1483,10 @@ export default function ChartSourceSwitcher({
       {/* Global Trade Opportunity Scanner — signal-first, manual-confirm execution */}
       {scannerOpen && <ScannerPanel ohlcvBuilder={ohlcvBuilder} isLiveData={isLiveData} onClose={() => setScannerOpen(false)} />}
 
+
+      {/* Live TV + Live Chat — floating, side by side when both are open */}
+      {tvOpen && <LiveTvPanel onClose={() => setTvOpen(false)} />}
+      {chatOpen && <LiveChatPanel onClose={() => setChatOpen(false)} rightOffset={tvOpen ? 504 : 12} />}
 
       {/* Mandatory EA risk disclaimer — blocks attach until accepted */}
       {disclaimerFor && (
