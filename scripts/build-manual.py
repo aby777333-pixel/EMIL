@@ -152,6 +152,7 @@ story += [Paragraph("9 · Gotchas that cost hours", H1), bullets([
     "Supabase Realtime: the sender's own INSERT can land before the channel is SUBSCRIBED — echo the inserted row optimistically (Live Chat does).",
     "Gemini sandbox: crossed/stale book, ticker ts = last trade, order ids > MAX_SAFE_INTEGER. Delta demo keys need EMIL's egress IP whitelisted (Netlify IPs vary).",
     "Netlify functions time out ~26 s: keep LLM batches small (news scoring caps at 24 headlines; brief ~18 s).",
+    "Twelve Data free plan also has a DAILY cap (800 credits): on 2026-09-03 the account burned 2 652 in a day (chart retry loops + testing). EMIL now reserves against a per-day counter (TD_DAILY_BUDGET, default 760) and refused reservations no longer count; a daily refusal carries a retry-after to 00:00 UTC.",
     "Windows CRLF warnings on commit are normal; do not 'fix' them repo-wide.",
 ])]
 

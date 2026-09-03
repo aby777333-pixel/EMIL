@@ -140,6 +140,16 @@ const TD_BUDGET_PER_MINUTE = 7 // keep 1 credit spare for admin tests
 
 const secToNextMinute = () => 61 - new Date().getSeconds()
 
+// Free-plan daily cap: reserve a little under 800 so the last credits stay for health checks.
+const TD_DAILY_BUDGET = Number(process.env.TD_DAILY_BUDGET ?? 760)
+function dailyBudgetError(): Error {
+  const now = new Date(); const reset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  const e: any = rateLimitedError(`The market-data feed reached its DAILY credit budget (free plan: 800 credits/day) — quotes and series resume at 00:00 UTC.`)
+  e.retryAfterSec = Math.max(60, Math.round((reset - now.getTime()) / 1000))
+  e.daily = true
+  return e
+}
+
 function rateLimitedError(message: string): Error {
   const e: any = new Error(message)
   e.rateLimited = true
@@ -164,8 +174,27 @@ async function reserveTdCredits(n: number): Promise<void> {
       where: { key: { startsWith: 'td_budget_' }, fetchedAt: { lt: new Date(Date.now() - 180e3) } },
     }).catch(() => {})
     if (used > TD_BUDGET_PER_MINUTE) {
+      // A refused reservation must not count — otherwise a client that retries every
+      // countdown keeps the counter saturated and the budget never recovers.
+      prisma.$executeRawUnsafe(`UPDATE research_cache SET payload = GREATEST(0, (payload)::int - $1)::text WHERE key = $2`, n, minuteKey).catch(() => {})
       throw rateLimitedError(`The market-data feed reached its per-minute budget (free plan: 8 credits/min).`)
     }
+    // Daily budget (free plan: 800 credits/day). Reserve against a per-UTC-day counter as well; when it is
+    // spent, refuse with a retry-after that points at the 00:00 UTC reset instead of the next minute.
+    const dayKey = `td_daily_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`
+    const dayRows: any[] = await prisma.$queryRawUnsafe(
+      `INSERT INTO research_cache (id, key, payload, "fetchedAt")
+       VALUES ('bud_' || $1, $1, $2, now())
+       ON CONFLICT (key) DO UPDATE SET payload = ((research_cache.payload)::int + $3)::text
+       RETURNING payload`,
+      dayKey, String(n), n,
+    )
+    const usedToday = parseInt(dayRows?.[0]?.payload ?? '0', 10)
+    if (usedToday > TD_DAILY_BUDGET) {
+      prisma.$executeRawUnsafe(`UPDATE research_cache SET payload = GREATEST(0, (payload)::int - $1)::text WHERE key = $2 OR key = $3`, n, minuteKey, dayKey).catch(() => {})
+      throw dailyBudgetError()
+    }
+    prisma.cacheEntry.deleteMany({ where: { key: { startsWith: 'td_daily_' }, fetchedAt: { lt: new Date(Date.now() - 2 * 86400e3) } } }).catch(() => {})
   } catch (e: any) {
     if (e?.rateLimited) throw e
     // Budget table unavailable — proceed; TD's own 429 handling still applies.
@@ -174,6 +203,8 @@ async function reserveTdCredits(n: number): Promise<void> {
 
 // Convert TD's own 429/credit messages into structured rate-limit errors.
 function tdError(message: string): Error {
+  // Daily cap (free plan: 800 credits/day) resets at 00:00 UTC — say so and hand back a long retry-after.
+  if (/day|daily/i.test(message) && /credit|limit|exceed/i.test(message)) return dailyBudgetError()
   if (/run out of API credits|429/i.test(message)) return rateLimitedError('The market-data feed reached its per-minute budget (free plan: 8 credits/min).')
   return new Error(message)
 }

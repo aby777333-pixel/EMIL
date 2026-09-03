@@ -116,6 +116,11 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 
 - `lib/data/heat.ts` (`fxHeat` via Frankfurter time series `/v1/{from}..{to}?base=USD`, cached 1h; `marketHeat` aggregates FX + crypto + board + breadth), `/api/data?fn=heat`, `/heatmap` page + nav item.
 
+## Hotfix (2026-09-04 00:xx UTC) — Twelve Data budget
+
+- The free plan has a DAILY cap of 800 credits; the account showed 2 652 used on 2026-09-03 (chart auto-retry loops + testing). Root causes fixed in `lib/data/hub.ts`: refused per-minute reservations were still counted (a retrying client kept the counter saturated), and there was no daily counter at all. Now: refused reservations are rolled back; a per-UTC-day counter (`TD_DAILY_BUDGET`, default 760) refuses with a retry-after pointing at 00:00 UTC; Twelve Data's own "run out of API credits for the day" is mapped to the same daily error instead of the per-minute one.
+- Until the reset, every Twelve Data-backed surface (board, watchlist quotes, charts, correlation, reports) shows the honest budget message; open feeds (Frankfurter, CoinGecko, GDELT, venues) keep working.
+
 ## Recommended next rounds
 
 1. **Keys round** — owner adds free API keys (FRED, EIA, Finnhub/Twelve Data, FMP) in Command → Data Providers; then economic calendar, central-bank monitor, company pages and screeners unlock.
