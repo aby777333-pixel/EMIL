@@ -144,6 +144,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, apiKey: key, prefix })
     }
 
+    if (body?.type === 'rotate_api_key') {
+      // Rotation = issue a replacement under the same label, then revoke the old
+      // key in the same transaction. The new plaintext is returned exactly once.
+      const keyRow = await prisma.apiKey.findUnique({ where: { id: body?.keyId ?? '' }, include: { user: { select: { email: true } } } })
+      if (!keyRow) return NextResponse.json({ error: 'Key not found' }, { status: 404 })
+      if (keyRow.status !== 'active') return NextResponse.json({ error: 'Only active keys can be rotated' }, { status: 409 })
+      const { key, prefix, hash } = generateApiKey()
+      await prisma.$transaction([
+        prisma.apiKey.create({ data: { userId: keyRow.userId, label: keyRow.label, prefix, keyHash: hash } }),
+        prisma.apiKey.update({ where: { id: keyRow.id }, data: { status: 'revoked', revokedAt: new Date() } }),
+      ])
+      await audit('API KEY ROTATED', `API key "${keyRow.label}" rotated for ${keyRow.user.email}: ${keyRow.prefix}… revoked, ${prefix}… issued. New key shown once.`, keyRow.userId)
+      return NextResponse.json({ ok: true, apiKey: key, prefix, email: keyRow.user.email, label: keyRow.label })
+    }
+
     if (body?.type === 'revoke_api_key') {
       const keyRow = await prisma.apiKey.findUnique({ where: { id: body?.keyId ?? '' }, include: { user: { select: { email: true } } } })
       if (!keyRow) return NextResponse.json({ error: 'Key not found' }, { status: 404 })

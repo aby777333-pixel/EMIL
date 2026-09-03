@@ -28,7 +28,7 @@ export async function GET() {
     // Evaluate active alerts against the (server-cached) watchlist quotes.
     if (activeCount > 0 && watchlist.length > 0) {
       try {
-        const quotes: any = await watchlistQuotes(watchlist.map((w) => w.symbol))
+        const quotes: any = await watchlistQuotes(Array.from(new Set(watchlist.map((w) => w.symbol))))
         if (Array.isArray(quotes?.data)) await evaluateAlerts(userId, quotes.data)
       } catch { /* budget reached or feed down — alerts evaluate next poll */ }
     }
@@ -39,7 +39,7 @@ export async function GET() {
     ])
     return NextResponse.json({
       alerts, notifications, unread, cap: ALERT_CAP,
-      watchlist: watchlist.map((w) => w.symbol),
+      watchlist: Array.from(new Set(watchlist.map((w) => w.symbol))),
     })
   } catch (e) {
     console.error(e)
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       if (!symbol || !isFinite(threshold) || threshold <= 0) {
         return NextResponse.json({ error: 'A symbol and a positive threshold are required.' }, { status: 400 })
       }
-      const onList = await prisma.watchlistItem.findUnique({ where: { userId_symbol: { userId, symbol } } })
+      const onList = await prisma.watchlistItem.findFirst({ where: { userId, symbol } })
       if (!onList) {
         return NextResponse.json({ error: `${symbol} is not on your watchlist. Alerts are limited to watchlist symbols so they ride the same cached quotes (free data plan).` }, { status: 400 })
       }

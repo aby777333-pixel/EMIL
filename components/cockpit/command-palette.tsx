@@ -50,6 +50,7 @@ const COMMAND: { href: string; label: string; icon: any }[] = [
   { href: '/command/providers', label: 'Command Center — Data Providers', icon: Database },
   { href: '/command/keys', label: 'Command Center — API Keys', icon: KeyRound },
   { href: '/command/flags', label: 'Command Center — Feature Flags', icon: Flag },
+  { href: '/command/demo', label: 'Command Center — Demo Environment', icon: FlaskConical },
   { href: '/command/research', label: 'Command Center — Research Ops', icon: GraduationCap },
   { href: '/command/audit', label: 'Command Center — Audit Trail', icon: ScrollText },
 ]

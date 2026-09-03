@@ -143,14 +143,32 @@ model CacheEntry {
 }
 
 // Per-user market watchlist (spec §66). Symbols are Twelve Data notation.
-model WatchlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  symbol    String
-  label     String?
-  createdAt DateTime @default(now())
+// Named watchlists (spec §66) — several lists per user, a symbol may sit on
+// more than one list, optional read-only public share link (/w/<token>).
+model Watchlist {
+  id         String          @id @default(cuid())
+  userId     String
+  name       String
+  sortOrder  Int             @default(0)
+  shareToken String?         @unique
+  createdAt  DateTime        @default(now())
+  items      WatchlistItem[]
 
-  @@unique([userId, symbol])
+  @@index([userId])
+  @@map("watchlists")
+}
+
+model WatchlistItem {
+  id          String     @id @default(cuid())
+  userId      String
+  symbol      String
+  label       String?
+  watchlistId String?
+  watchlist   Watchlist? @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+
+  @@unique([watchlistId, symbol])
+  @@index([userId])
   @@map("watchlist_items")
 }
 
@@ -1095,4 +1113,20 @@ model RateLimit {
   windowStart DateTime @default(now())
 
   @@map("rate_limits")
+}
+
+// Admin-managed demo environment (spec §50–51). Credentials live on the demo
+// User row (bcrypt); this single row tracks who reset what, when.
+model DemoEnvironment {
+  id            String    @id
+  demoEmail     String
+  demoUserId    String?
+  passwordSetAt DateTime?
+  lastResetAt   DateTime?
+  lastResetBy   String?
+  resetCount    Int       @default(0)
+  note          String?
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@map("demo_environment")
 }

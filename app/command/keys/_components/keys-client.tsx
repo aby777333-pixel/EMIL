@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Panel, LoadingPanel, StatusMessage, Stat } from '@/components/cockpit/panel'
-import { KeyRound, BookOpen } from 'lucide-react'
+import { KeyRound, BookOpen, RefreshCw, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function KeysClient() {
   const [data, setData] = useState<any>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
+  const [revealed, setRevealed] = useState<{ apiKey: string; prefix: string; email: string; label: string } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -37,6 +38,23 @@ export default function KeysClient() {
     }
   }, [busy, load])
 
+  const rotate = useCallback(async (keyId: string) => {
+    if (busy || !window.confirm('Rotate this API key? A replacement is issued under the same label and the current key stops working immediately.')) return
+    setBusy(keyId)
+    try {
+      const res = await fetch('/api/command/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'rotate_api_key', keyId }) })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d?.error ?? 'failed')
+      setRevealed({ apiKey: d.apiKey, prefix: d.prefix, email: d.email, label: d.label })
+      toast.success('Key rotated — copy the new key now, it is shown only once.')
+      await load()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to rotate.')
+    } finally {
+      setBusy('')
+    }
+  }, [busy, load])
+
   if (error) return <div className="p-6"><StatusMessage text={error} /></div>
   if (!data) return <div className="p-6"><LoadingPanel text="Loading API keys..." /></div>
 
@@ -54,6 +72,17 @@ export default function KeysClient() {
         <Stat label="Revoked" value={keys.filter((k: any) => k.status === 'revoked').length} />
         <Stat label="Used In Last 7 Days" value={keys.filter((k: any) => k.lastUsedAt && Date.now() - new Date(k.lastUsedAt).getTime() < 7 * 864e5).length} valueClass="text-cyan-300" />
       </div>
+
+      {revealed ? (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 space-y-1.5">
+          <p className="text-xs font-bold text-emerald-300">New key for {revealed.email} · {revealed.label} — shown once, only its hash is stored</p>
+          <div className="flex items-center gap-2">
+            <code className="num text-[11px] text-white break-all">{revealed.apiKey}</code>
+            <button onClick={() => { navigator.clipboard?.writeText(revealed.apiKey); toast.success('Copied') }} className="shrink-0 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-1 flex items-center gap-1"><Copy className="h-3 w-3" /> Copy</button>
+            <button onClick={() => setRevealed(null)} className="shrink-0 text-[10px] text-slate-400 hover:text-white">Dismiss</button>
+          </div>
+        </div>
+      ) : null}
 
       <Panel title={`Issued Keys (${keys.length})`} icon={KeyRound} accent="cyan">
         <div className="overflow-x-auto scrollbar-thin">
@@ -79,7 +108,12 @@ export default function KeysClient() {
                   <td className="py-2 pr-3 num text-[10px] text-slate-500">{k.lastUsedAt ? String(k.lastUsedAt).slice(0, 16).replace('T', ' ') : 'never'}</td>
                   <td className="py-2 pr-3 num text-[10px] text-slate-500">{String(k.createdAt).slice(0, 10)}</td>
                   <td className="py-2">
-                    {k.status === 'active' ? <button onClick={() => revoke(k.id)} disabled={!!busy} className="rounded bg-red-600/70 hover:bg-red-600 disabled:opacity-50 text-white text-[10px] px-2.5 py-1">Revoke</button> : null}
+                    {k.status === 'active' ? (
+                      <span className="flex items-center gap-1.5">
+                        <button onClick={() => rotate(k.id)} disabled={!!busy} title="Issue a replacement and revoke this key" className="rounded bg-amber-600/70 hover:bg-amber-600 disabled:opacity-50 text-white text-[10px] px-2.5 py-1 flex items-center gap-1"><RefreshCw className="h-3 w-3" /> Rotate</button>
+                        <button onClick={() => revoke(k.id)} disabled={!!busy} className="rounded bg-red-600/70 hover:bg-red-600 disabled:opacity-50 text-white text-[10px] px-2.5 py-1">Revoke</button>
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -99,7 +133,7 @@ export default function KeysClient() {
           <p><code className="text-slate-200">GET /api/v1/knowledge/concepts</code> · <code className="text-slate-200">GET /api/v1/knowledge/claims</code> — the attributed knowledge base</p>
           <p><code className="text-slate-200">GET /api/v1/broker-connections</code> — the caller&apos;s linked brokers (masked)</p>
           <p><code className="text-slate-200">POST /api/v1/broker-connections</code> — link a broker: <code>{'{ "providerKey": "upstox", "accessToken": "…" }'}</code>; the link is verified with a lightweight read</p>
-          <p className="text-amber-300/90">The API is read/link only — it never places orders. Rate limiting and credential encryption are on the go-live checklist.</p>
+          <p className="text-amber-300/90">The API is read/link only — it never places orders. Rotate keys from this page; the old key is revoked the moment the replacement is issued.</p>
         </div>
       </Panel>
     </div>
