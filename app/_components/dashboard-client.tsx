@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Panel, Stat, Meter, LoadingPanel, StatusMessage } from '@/components/cockpit/panel'
 import { fmtMoney, fmtSigned, fmtPct, fmtNum, plColor, healthColor, volColor, MODE_LABELS } from '@/lib/format'
+import MorningBrief from './morning-brief'
 
 export function DashboardClient() {
   const [data, setData] = useState<any>(null)
@@ -71,6 +72,9 @@ export function DashboardClient() {
           {st?.armed ? 'Manage ARM / Mode →' : 'ARM EMIL →'}
         </Link>
       </div>
+
+      {/* Morning Brief — model assessment from delayed research data (spec §67–69) */}
+      <MorningBrief />
 
       {/* Market scope */}
       {marketsData?.markets?.length ? (

@@ -1,4 +1,5 @@
 import { toTwelveData } from '@/lib/instruments/catalog'
+import { scoreHeadlines } from '@/lib/news-impact'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -46,7 +47,18 @@ export async function GET(req: Request) {
     }
     if (fn === 'news') {
       const category = url.searchParams.get('category') ?? 'markets'
-      return NextResponse.json({ ok: true, ...(await newsFeed(category, 30)) })
+      const feed: any = await newsFeed(category, 30)
+      // Optional AI impact scoring (spec §16–17): one cached LLM call per batch,
+      // shared by every user. A scoring failure never hides the headlines.
+      const wantScore = url.searchParams.get('score') === '1'
+      if (wantScore && process.env.ABACUSAI_API_KEY && (await flagEnabled('news_impact_scoring', true))) {
+        const scored = await scoreHeadlines(feed?.data ?? []).catch(() => null)
+        if (scored?.items) {
+          const byIdx = new Map(scored.items.map((x: any) => [x.i, x]))
+          return NextResponse.json({ ok: true, ...feed, data: (feed?.data ?? []).map((a: any, i: number) => ({ ...a, impact: byIdx.get(i) ?? null })), scoring: { model: scored.model, fetchedAt: scored.fetchedAt, label: 'model assessment' } })
+        }
+      }
+      return NextResponse.json({ ok: true, ...feed })
     }
     if (fn === 'time_series') {
       const rawSymbol = (url.searchParams.get('symbol') ?? '').slice(0, 24)

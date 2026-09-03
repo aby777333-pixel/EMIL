@@ -14,7 +14,7 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 | Global API Hub (§8–10) | EXISTS | 138 providers across 14 markets/regions (incl. live + testnet rows for Deribit, Delta Exchange India and Gemini); color-coded collapsible sections per region (India/Forex/US/UK/Europe/APAC/Canada/MENA/Africa/LatAm/Crypto) with provider + linked counts; region dropdown (selected/all/per-region); brokers without a public API honestly tagged `outreach_target` for BD proposals; per-customer broker links; connection dashboard fields mostly present. |
 | API security (§11) | ROUND 4 + 5 | Secrets encrypted at rest (Round 4). **Round 5:** TOTP two-factor authentication (Settings → Two-Factor; enforced at sign-in), DB-backed rate limiting on sign-in (10/email, 30/IP per 15 min) and signup (5/IP, 60 global per hour). **Round 6:** API key **rotation** from Command → API Keys (replacement issued under the same label + old key revoked in one transaction; new plaintext shown once; audited). |
 | Research terminal / global market dashboard (§12–13) | ROUND 1 (v1) + ROUND 5 crypto | **Round 5:** "Crypto — live from the venues" board on /markets: Deribit + Delta India perps (last/mark/index, 24h, 8h funding, OI, volume) and Gemini spot from public tickers, no key, cached 30 s. | /markets: global market clock, indices/metals/energy board (LIVE with the owner's Twelve Data key, 8-symbol free-tier budget, 10-min server cache), FX reference, crypto, personal watchlist. Country terminals, heatmaps, breadth: MISSING. |
-| Professional charting (§14, §253) | ROUND 2 | /charts on TradingView Lightweight Charts: candles/line/area, 5m–1W intervals, SMA20/50 + EMA20 computed in-app (§252), volume, quick picks + any symbol, deep link ?symbol=. Drawing tools, saved layouts, compare: MISSING. |
+| Professional charting (§14, §253) | ROUND 2 + ROUND 8 | /charts on TradingView Lightweight Charts v5: candles/line/area, 5m–1W, SMA20/50 + EMA20 + **Bollinger 20·2σ** + **RSI 14 in its own pane** (all computed in-app, §252), volume, **compare mode** (second instrument rebased to the main series' first bar), **price levels** placed by click or typed and persisted per symbol (`chart_levels`, cap 20), **saved layouts** with a default applied on first visit (`chart_layouts`, cap 12), symbol box resolves any spelling through the instrument master. Freehand drawing (trendlines/fibs) still MISSING — Lightweight Charts has no native drawing layer. |
 | EMIL AI Analyst (§15) | PARTIAL | Ask EMIL answers from the attributed knowledge base with citations; not yet wired to live market/portfolio context. |
 | News intelligence (§16–17) | ROUND 1 (v1) | /news with 8 categories, publisher links, honest labeling. Primary→fallback per the hub design: GDELT DOC 2.0 → Google News RSS (both health-tested). AI impact scoring: MISSING. |
 | Economic calendar (§18) | ROUND 5 | /calendar: this week + next from the free Forex Factory JSON feed (cached 15 min), impact/currency filters, actual/forecast/previous, local times. No key needed. |
@@ -82,6 +82,10 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 
 - Canonical instrument catalog + normalization (`lib/instruments/*`), `instrument_master` table, `/api/instruments`, `/instruments` page, ⌘K instrument search, watchlist autocomplete, research routes accept any spelling.
 - Still to grow: per-exchange instrument-master SYNC from providers (Twelve Data `/stocks`, NSE masters) — today the catalog is curated code, versioned (`CATALOG_VERSION`).
+
+## Round 8 (2026-09-03 night) — Charting upgrades
+
+- Compare mode, Bollinger, RSI pane, click-to-place levels, saved layouts + default (`/api/charts`, tables `chart_layouts`, `chart_levels`).
 
 ## Recommended next rounds
 
