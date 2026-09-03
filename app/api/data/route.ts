@@ -1,5 +1,6 @@
 import { toTwelveData } from '@/lib/instruments/catalog'
 import { scoreHeadlines } from '@/lib/news-impact'
+import { marketHeat } from '@/lib/data/heat'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -44,6 +45,9 @@ export async function GET(req: Request) {
     }
     if (fn === 'market_board') {
       return NextResponse.json({ ok: true, ...(await marketBoard()) })
+    }
+    if (fn === 'heat') {
+      return NextResponse.json({ ok: true, ...(await marketHeat()) })
     }
     if (fn === 'news') {
       const category = url.searchParams.get('category') ?? 'markets'

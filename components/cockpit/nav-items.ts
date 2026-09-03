@@ -1,4 +1,4 @@
-import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Tv, MessagesSquare, Boxes, Briefcase } from 'lucide-react'
+import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Tv, MessagesSquare, Boxes, Briefcase, Grid3X3 } from 'lucide-react'
 import { EMIL_TRADE_URL } from '@/lib/emil-trade'
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
@@ -12,6 +12,7 @@ export const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/markets', label: 'Global Markets', icon: Globe2 },
   { href: '/instruments', label: 'Instrument Master', icon: Boxes },
+  { href: '/heatmap', label: 'Heatmap & Breadth', icon: Grid3X3 },
   { href: '/charts', label: 'Charts', icon: CandlestickChart },
   { href: '/correlation', label: 'Correlation', icon: GitCompareArrows },
   { href: '/news', label: 'EMIL News', icon: Newspaper },
