@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'crypto'
 import { prisma } from '@/lib/db'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
 import { parseScopes, planLimits, type PlanLimits, type Scope } from '@/lib/entitlements'
+import { authenticateAccessToken } from '@/lib/oauth'
 
 export const API_KEY_PREFIX = 'emil_live_'
 export const SANDBOX_KEY_PREFIX = 'emil_test_'
@@ -38,6 +39,22 @@ function ipAllowed(ip: string, csv: string | null | undefined): boolean {
 // Authenticate a public-API request via `x-api-key` or `Authorization: Bearer`.
 export async function authenticateApiKey(req: Request): Promise<ApiAuthResult> {
   const headerKey = req.headers.get('x-api-key') ?? (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+  // OAuth access tokens ("Connect with EMIL") are accepted as Bearer too.
+  if (headerKey?.startsWith('emil_at_')) {
+    const g = await authenticateAccessToken(headerKey)
+    if (!g) return { ok: false, status: 401, error: 'Invalid, expired or revoked access token. Refresh it at /api/oauth/token.' }
+    const user = await prisma.user.findUnique({ where: { id: g.userId }, include: { profile: true } })
+    if (!user) return { ok: false, status: 401, error: 'Account not found.' }
+    const profileStatus = user.profile?.status ?? 'trial'
+    if (profileStatus === 'suspended' || profileStatus === 'churned') return { ok: false, status: 403, error: `Account is ${profileStatus}.` }
+    const isAdmin = user.role === 'admin'
+    const sub = isAdmin ? null : await prisma.subscription.findUnique({ where: { userId: user.id }, select: { status: true, planKey: true } }).catch(() => null)
+    const planKey = sub ? (sub.status === 'past_due' || sub.status === 'cancelled' ? 'trial' : sub.planKey || user.profile?.planKey || 'trial') : (user.profile?.planKey ?? 'trial')
+    const limits = planLimits(planKey, isAdmin)
+    const perMin = await rateLimit(`oauth:min:${g.grantId}`, limits.apiPerMinute, 60)
+    if (!perMin.allowed) return { ok: false, status: 429, error: `Plan quota reached (${limits.label}: ${limits.apiPerMinute} requests/minute).`, retryAfterSec: perMin.retryAfterSec }
+    return { ok: true, userId: user.id, email: user.email, planKey, keyId: `grant:${g.grantId}`, isAdmin, environment: 'live', scopes: g.scopes, limits }
+  }
   if (!headerKey || !(headerKey.startsWith(API_KEY_PREFIX) || headerKey.startsWith(SANDBOX_KEY_PREFIX))) {
     return { ok: false, status: 401, error: 'Missing API key. Send it as an "x-api-key" header or "Authorization: Bearer <key>".' }
   }
@@ -88,6 +105,7 @@ export function hasScope(auth: Extract<ApiAuthResult, { ok: true }>, scope: Scop
 
 // Per-key, per-day, per-endpoint metering (api_usage). Fire-and-forget.
 export function recordApiUsage(keyId: string, userId: string, endpoint: string) {
+  if (keyId.startsWith('grant:')) return // OAuth grants are not api_keys rows; quota still applies per grant
   const day = new Date().toISOString().slice(0, 10)
   const id = `${keyId}:${day}:${endpoint}`.slice(0, 190)
   prisma.$executeRaw`

@@ -6,6 +6,7 @@
 import { prisma } from '@/lib/db'
 import { timeoutFetch } from '@/lib/execution/types'
 import { emitEvent } from '@/lib/webhooks'
+import { decryptSecret } from '@/lib/secrets'
 
 export const telegramConfigured = () => !!process.env.TELEGRAM_BOT_TOKEN
 export const emailConfigured = () => !!process.env.RESEND_API_KEY
@@ -74,6 +75,36 @@ export async function emailSend(to: string, subject: string, html: string): Prom
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
+// Format one notification for a chat platform's incoming webhook.
+export function chatPayload(kind: string, n: { title: string; body?: string | null }, link: string) {
+  const text = `*EMIL — ${n.title}*\n${n.body ?? ''}${link ? `\n${link}` : ''}`
+  if (kind === 'slack') return { text, blocks: [{ type: 'section', text: { type: 'mrkdwn', text } }] }
+  if (kind === 'discord') return { content: text.replace(/\*/g, '**'), username: 'EMIL' }
+  if (kind === 'teams') return { '@type': 'MessageCard', '@context': 'https://schema.org/extensions', summary: n.title, themeColor: '0891B2', title: `EMIL — ${n.title}`, text: `${n.body ?? ''}${link ? `\n\n[Open in EMIL](${link})` : ''}` }
+  return { source: 'emil', title: n.title, body: n.body ?? null, href: link || null, at: new Date().toISOString() }
+}
+
+export async function sendToChannel(ch: { id: string; kind: string; webhookUrl: string; failCount: number }, n: { title: string; body?: string | null }, link: string) {
+  const url = decryptSecret(ch.webhookUrl) ?? ''
+  let ok = false
+  let err = ''
+  try {
+    const res = await timeoutFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chatPayload(ch.kind, n, link)) }, 8000)
+    ok = res.ok
+    if (!ok) err = `responded ${res.status}`
+  } catch (e: any) {
+    err = e?.message ?? 'network error'
+  }
+  const failCount = ok ? 0 : ch.failCount + 1
+  await prisma.notificationChannel.update({ where: { id: ch.id }, data: { lastSentAt: new Date(), failCount, lastError: ok ? null : err.slice(0, 200), status: failCount >= 5 ? 'failing' : 'active' } }).catch(() => {})
+  return { ok, error: err }
+}
+
+async function chatChannelsSend(userId: string, n: { title: string; body?: string | null }, link: string) {
+  const channels = await prisma.notificationChannel.findMany({ where: { userId, status: { in: ['active', 'failing'] } } }).catch(() => [])
+  await Promise.allSettled(channels.map((ch) => sendToChannel(ch, n, link)))
+}
+
 // Fan a notification out to every channel the user opted into. Fire-and-forget.
 export async function deliverNotification(userId: string, n: { title: string; body?: string | null; href?: string | null }) {
   try {
@@ -88,6 +119,8 @@ export async function deliverNotification(userId: string, n: { title: string; bo
     if (u.notifyEmail && emailConfigured()) {
       jobs.push(emailSend(u.email, `EMIL — ${n.title}`, `<p><strong>${esc(n.title)}</strong></p><p>${esc(n.body ?? '')}</p>${link ? `<p><a href="${link}">Open in EMIL</a></p>` : ''}<p style="color:#888;font-size:12px">Research signal, not an execution trigger. Manage delivery in EMIL → Settings.</p>`))
     }
+    // Slack / Discord / Teams / generic chat channels (round E).
+    jobs.push(chatChannelsSend(userId, n, link))
     await Promise.allSettled(jobs)
     // Outbound webhooks (platform round A) — every notification is also an event.
     emitEvent(userId, 'notification.created', { title: n.title, body: n.body ?? null, href: link || null }).catch(() => {})

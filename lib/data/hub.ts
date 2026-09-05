@@ -291,8 +291,19 @@ const TS_TTL: Record<string, number> = { '1min': 120, '5min': 180, '15min': 300,
 // Data returns every bar from that date onward (outputsize raised to fit), so a
 // "2 years" request covers two years whether the instrument trades 5 or 7 days
 // a week. One credit either way.
-export async function timeSeries(symbol: string, interval = '1day', outputsize = 90, startDate?: string) {
-  const apiKey = await tdKey()
+// Bring-your-own key (round F): a customer's own Twelve Data key runs their
+// request on THEIR plan — no house budget reservation, same shared cache.
+async function userTdKey(userId?: string): Promise<string | null> {
+  if (!userId) return null
+  try {
+    const row = await prisma.userProviderKey.findUnique({ where: { userId_providerKey: { userId, providerKey: 'twelve_data' } } })
+    return row && row.status !== 'error' ? decryptSecret(row.apiKey) : null
+  } catch { return null }
+}
+
+export async function timeSeries(symbol: string, interval = '1day', outputsize = 90, startDate?: string, userId?: string) {
+  const ownKey = await userTdKey(userId)
+  const apiKey = ownKey ?? (await tdKey())
   if (!apiKey) {
     return { provider: 'twelve_data', needsKey: true, message: 'Add a free Twelve Data API key in Command Center → Data Providers to enable time series.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
   }
@@ -301,7 +312,7 @@ export async function timeSeries(symbol: string, interval = '1day', outputsize =
   const size = Math.max(2, Math.min(start ? 1200 : 500, Math.round(outputsize) || 90))
   const sym = symbol.trim().toUpperCase()
   return cachedFetch(`ts_${sym}_${iv}_${size}${start ? `_${start}` : ''}`, TS_TTL[iv] ?? 900, () => timed('twelve_data', async () => {
-    await reserveTdCredits(1)
+    if (!ownKey) await reserveTdCredits(1)
     const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=${size}${start ? `&start_date=${start}` : ''}&apikey=${apiKey}`)
     if (!res.ok) throw tdError(`Twelve Data responded ${res.status}`)
     const body = await res.json()
@@ -320,11 +331,11 @@ export async function timeSeries(symbol: string, interval = '1day', outputsize =
 // `days` (calendar days back from today) is the honest window: a bar count
 // spans very different periods for a 7-day crypto series and a 5-day equity
 // series, which made the old "2Y" (500 bars) stop at ~16 months on crypto pairs.
-export async function correlationPair(symbolA: string, symbolB: string, bars = 180, days?: number) {
+export async function correlationPair(symbolA: string, symbolB: string, bars = 180, days?: number, userId?: string) {
   const win = days && Number.isFinite(days) ? Math.max(30, Math.min(1100, Math.round(days))) : null
   const startDate = win ? new Date(Date.now() - win * 86400000).toISOString().slice(0, 10) : undefined
   const size = win ? win + 10 : Math.max(30, Math.min(500, bars))
-  const [a, b] = await Promise.all([timeSeries(symbolA, '1day', size, startDate), timeSeries(symbolB, '1day', size, startDate)])
+  const [a, b] = await Promise.all([timeSeries(symbolA, '1day', size, startDate, userId), timeSeries(symbolB, '1day', size, startDate, userId)])
   if ((a as any).needsKey || (b as any).needsKey) return { needsKey: true, message: (a as any).message ?? (b as any).message }
   const mapA = new Map((a as any).data.map((x: any) => [x.time, x.close]))
   const joined: { time: string; ra: number; rb: number }[] = []

@@ -157,14 +157,14 @@ async function handle(req: Request, params: { path?: string[] }) {
       if (path === 'market/candles') {
         const symbol = toTwelveData(s('symbol').slice(0, 24)).symbol
         if (!symbol) return json({ error: 'symbol parameter required' }, 400)
-        return json({ ok: true, ...(await timeSeries(symbol, s('interval', '1day'), parseInt(s('outputsize', '90'), 10))) })
+        return json({ ok: true, ...(await timeSeries(symbol, s('interval', '1day'), parseInt(s('outputsize', '90'), 10), undefined, userId)) })
       }
       if (path === 'market/correlation') {
         const a = toTwelveData(s('a').slice(0, 24)).symbol
         const b = toTwelveData(s('b').slice(0, 24)).symbol
         if (!a || !b) return json({ error: 'a and b symbol parameters required' }, 400)
         const days = parseInt(s('days', '365'), 10)
-        return json({ ok: true, ...(await correlationPair(a, b, 180, Math.max(30, Math.min(730, days || 365)))) })
+        return json({ ok: true, ...(await correlationPair(a, b, 180, Math.max(30, Math.min(730, days || 365)), userId)) })
       }
       if (path === 'market/fx') return json({ ok: true, ...(await fxRates(s('base', 'USD').toUpperCase().slice(0, 3))) })
       if (path === 'market/crypto') return json({ ok: true, ...(await cryptoMarkets(25)) })

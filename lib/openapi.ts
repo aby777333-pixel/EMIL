@@ -95,7 +95,7 @@ export function buildOpenApi(baseUrl: string) {
     info: {
       title: 'EMIL Platform API',
       version: API_VERSION,
-      description: 'Programmatic access to EMIL — research data, alerts, journal, portfolio, PAPER trading, webhooks and bring-your-own data. Research data is delayed and never an execution trigger; the API never places live orders.',
+      description: 'Programmatic access to EMIL — research data, alerts, journal, portfolio, PAPER trading, webhooks, organizations and bring-your-own data. Authenticate with an API key (x-api-key / Bearer emil_live_… or emil_test_…) or an OAuth 2.0 access token (Bearer emil_at_…, obtained via /oauth/authorize + /api/oauth/token). Research data is delayed and never an execution trigger; the API never places live orders.',
     },
     servers: [{ url: `${baseUrl}/api/v1` }],
     components: {

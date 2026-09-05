@@ -72,7 +72,7 @@ export async function GET(req: Request) {
       const symbol = toTwelveData(rawSymbol).symbol
       const interval = url.searchParams.get('interval') ?? '1day'
       const outputsize = parseInt(url.searchParams.get('outputsize') ?? '90', 10)
-      return NextResponse.json({ ok: true, ...(await timeSeries(symbol, interval, outputsize)) })
+      return NextResponse.json({ ok: true, ...(await timeSeries(symbol, interval, outputsize, undefined, (session.user as any).id as string)) })
     }
     if (fn === 'correlation') {
       const a = toTwelveData((url.searchParams.get('a') ?? '').slice(0, 24)).symbol
@@ -81,7 +81,7 @@ export async function GET(req: Request) {
       const bars = parseInt(url.searchParams.get('bars') ?? '180', 10)
       const daysRaw = parseInt(url.searchParams.get('days') ?? '', 10)
       const days = Number.isFinite(daysRaw) && daysRaw > 0 ? daysRaw : undefined
-      return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars, days)) })
+      return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars, days, (session.user as any).id as string)) })
     }
     return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, crypto_venues, options_chain, econ_calendar, central_banks, fx_rates, market_board, news, time_series, correlation.` }, { status: 400 })
   } catch (e: any) {

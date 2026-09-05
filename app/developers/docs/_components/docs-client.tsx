@@ -64,7 +64,9 @@ await emil.paperPlace({ venue: 'deribit_testnet', symbol: 'BTC-PERPETUAL', side:
       'Push your own quotes, orders and P&L: POST /ingest/quotes|orders|pnl { rows }. Rows stay isolated to your account and are labelled CUSTOMER FEED everywhere.',
       'Read EMIL data into your platform with the SDKs, or generate a client from /api/v1/openapi.json.',
       'Subscribe your platform to events via webhooks; use /status and /api/status for uptime.',
-      'Coming next round: embeddable widgets (chart, news, Ask EMIL, brief), OAuth2 "Connect with EMIL", and the integrations directory (Slack, Discord, Teams, Zapier, Sheets).',
+      'Embed EMIL: Integrations → embed key, then <script src="/sdk/emil-embed.js"> and EmilEmbed.mount("#el", { key, widget: "chart" }) — chart, quotes, news, brief and Ask EMIL widgets with your branding.',
+      'Act for your users: register an OAuth application in Integrations; send them to /oauth/authorize?client_id&redirect_uri&scope&state, exchange the code at /api/oauth/token, and call /api/v1 with the Bearer access token (hourly, refreshable).',
+      'Route notifications into Slack, Discord, Microsoft Teams or any JSON endpoint from Integrations; bring your own Twelve Data or OpenAI key so heavy usage runs on your plan.',
     ],
     snippet: `emil.ingest_quotes([{ "symbol": "NIFTY", "bid": 24510.5, "ask": 24511.0, "ts": "2026-09-05T09:15:00Z" }])
 emil.ingest_pnl([{ "account": "desk-1", "equity": 1250000, "realized": 1820, "ts": "2026-09-05T09:15:00Z" }])
