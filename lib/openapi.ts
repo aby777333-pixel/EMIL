@@ -23,6 +23,7 @@ export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/ping', summary: 'Key and account check', scope: 'read', group: 'Account' },
   { method: 'GET', path: '/me', summary: 'Account, plan, quota and key scopes', scope: 'read', group: 'Account' },
   { method: 'GET', path: '/usage', summary: 'Your API usage for the last 14 days (per key, per endpoint)', scope: 'read', group: 'Account' },
+  { method: 'GET', path: '/billing', summary: 'Subscription standing, this month\'s metered usage and overage estimate, invoices', scope: 'read', group: 'Account' },
   { method: 'GET', path: '/state', summary: 'EMIL system state (armed, mode, guardian, trust)', scope: 'read', group: 'EMIL' },
   { method: 'GET', path: '/strategies', summary: 'Current strategy blueprints (research output, not advice)', scope: 'read', group: 'EMIL' },
   { method: 'GET', path: '/knowledge/concepts', summary: 'Knowledge-graph concepts', scope: 'read', group: 'EMIL' },

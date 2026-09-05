@@ -16,6 +16,7 @@ import { WEBHOOK_EVENTS, createEndpoint, dispatchDue, emitEvent, validateWebhook
 import { buildOpenApi, buildPostman, ENDPOINTS } from '@/lib/openapi'
 import { SCOPES, type Scope } from '@/lib/entitlements'
 import { OrgGuardError, orderGuard, membershipsOf, trackRecord } from '@/lib/org'
+import { ensureSubscription, monthKey, monthUsage, overageFor } from '@/lib/billing'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,6 +120,11 @@ async function handle(req: Request, params: { path?: string[] }) {
       const since = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10)
       const rows = await prisma.apiUsage.findMany({ where: { userId, day: { gte: since } }, orderBy: [{ day: 'asc' }, { endpoint: 'asc' }] })
       return json({ ok: true, since, total: rows.reduce((a, r) => a + r.count, 0), rows: rows.map((r) => ({ day: r.day, keyId: r.keyId, endpoint: r.endpoint, count: r.count })) })
+    }
+
+    if (path === 'billing' && method === 'GET') {
+      const [sub, invoices, calls] = await Promise.all([ensureSubscription(userId), prisma.invoice.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 24 }), monthUsage(userId)])
+      return json({ ok: true, subscription: { planKey: sub.planKey, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd, cancelAtPeriodEnd: sub.cancelAtPeriodEnd }, usage: { month: monthKey(), calls, ...overageFor(sub.planKey, calls) }, invoices: invoices.map((i) => ({ number: i.number, planKey: i.planKey, periodStart: i.periodStart, periodEnd: i.periodEnd, currency: i.currency, total: i.total, status: i.status, payUrl: i.status === 'open' ? i.payUrl : null, paidAt: i.paidAt })) })
     }
 
     // ---- EMIL state / knowledge -----------------------------------------

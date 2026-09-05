@@ -60,7 +60,9 @@ export async function authenticateApiKey(req: Request): Promise<ApiAuthResult> {
     return { ok: false, status: 403, error: `Account is ${profileStatus}. Contact support to restore access.` }
   }
   const isAdmin = record.user.role === 'admin'
-  const planKey = record.user.profile?.planKey ?? 'trial'
+  // Billing standing: past-due or cancelled subscriptions fall back to trial limits.
+  const sub = isAdmin ? null : await prisma.subscription.findUnique({ where: { userId: record.userId }, select: { status: true, planKey: true } }).catch(() => null)
+  const planKey = sub ? (sub.status === 'past_due' || sub.status === 'cancelled' ? 'trial' : sub.planKey || record.user.profile?.planKey || 'trial') : (record.user.profile?.planKey ?? 'trial')
   const limits = planLimits(planKey, isAdmin)
   const [perMin, perDay] = await Promise.all([
     rateLimit(`apikey:min:${record.id}`, limits.apiPerMinute, 60),

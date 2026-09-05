@@ -33,16 +33,19 @@ export type PlanLimits = {
   organizations: boolean
   members: number
   label: string
+  /** Metered billing: API calls included per month and the overage price per 1,000 calls (USD). */
+  includedCallsPerMonth: number
+  overagePer1k: number
 }
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  trial: { label: 'Trial', apiPerMinute: 30, apiPerDay: 2_000, maxKeys: 2, maxWebhooks: 1, maxIngestRowsPerDay: 5_000, streaming: false, sandboxOnly: true, organizations: false, members: 1 },
-  starter: { label: 'Starter', apiPerMinute: 120, apiPerDay: 20_000, maxKeys: 5, maxWebhooks: 3, maxIngestRowsPerDay: 50_000, streaming: false, sandboxOnly: false, organizations: false, members: 1 },
-  pro: { label: 'Pro', apiPerMinute: 600, apiPerDay: 200_000, maxKeys: 20, maxWebhooks: 10, maxIngestRowsPerDay: 500_000, streaming: true, sandboxOnly: false, organizations: true, members: 5 },
-  institutional: { label: 'Institutional', apiPerMinute: 3_000, apiPerDay: 2_000_000, maxKeys: 100, maxWebhooks: 50, maxIngestRowsPerDay: 5_000_000, streaming: true, sandboxOnly: false, organizations: true, members: 100 },
+  trial: { label: 'Trial', apiPerMinute: 30, apiPerDay: 2_000, maxKeys: 2, maxWebhooks: 1, maxIngestRowsPerDay: 5_000, streaming: false, sandboxOnly: true, organizations: false, members: 1, includedCallsPerMonth: 20_000, overagePer1k: 0 },
+  starter: { label: 'Starter', apiPerMinute: 120, apiPerDay: 20_000, maxKeys: 5, maxWebhooks: 3, maxIngestRowsPerDay: 50_000, streaming: false, sandboxOnly: false, organizations: false, members: 1, includedCallsPerMonth: 300_000, overagePer1k: 0.5 },
+  pro: { label: 'Pro', apiPerMinute: 600, apiPerDay: 200_000, maxKeys: 20, maxWebhooks: 10, maxIngestRowsPerDay: 500_000, streaming: true, sandboxOnly: false, organizations: true, members: 5, includedCallsPerMonth: 3_000_000, overagePer1k: 0.25 },
+  institutional: { label: 'Institutional', apiPerMinute: 3_000, apiPerDay: 2_000_000, maxKeys: 100, maxWebhooks: 50, maxIngestRowsPerDay: 5_000_000, streaming: true, sandboxOnly: false, organizations: true, members: 100, includedCallsPerMonth: 30_000_000, overagePer1k: 0.1 },
 }
 
-const ADMIN_LIMITS: PlanLimits = { label: 'Admin', apiPerMinute: 10_000, apiPerDay: 10_000_000, maxKeys: 1_000, maxWebhooks: 1_000, maxIngestRowsPerDay: 50_000_000, streaming: true, sandboxOnly: false, organizations: true, members: 10_000 }
+const ADMIN_LIMITS: PlanLimits = { label: 'Admin', apiPerMinute: 10_000, apiPerDay: 10_000_000, maxKeys: 1_000, maxWebhooks: 1_000, maxIngestRowsPerDay: 50_000_000, streaming: true, sandboxOnly: false, organizations: true, members: 10_000, includedCallsPerMonth: 1_000_000_000, overagePer1k: 0 }
 
 export function planLimits(planKey: string | null | undefined, isAdmin = false): PlanLimits {
   if (isAdmin) return ADMIN_LIMITS
