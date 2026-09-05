@@ -6,9 +6,24 @@ import { useRouter } from 'next/navigation'
 import { Activity, Lock, Mail, User, TrendingUp, ShieldCheck, BrainCircuit } from 'lucide-react'
 import { toast } from 'sonner'
 
+// Only same-origin paths are honoured as post-login destinations (invite links, deep links).
+const safeCallback = () => {
+  try {
+    const cb = new URLSearchParams(window.location.search).get('callbackUrl') ?? ''
+    if (cb.startsWith('/') && !cb.startsWith('//')) return cb
+    const u = new URL(cb, window.location.origin)
+    return u.origin === window.location.origin ? `${u.pathname}${u.search}` : '/'
+  } catch { return '/' }
+}
+
 export function LoginClient() {
   const router = useRouter()
   const { status } = useSession() || {}
+  // Enterprise sign-in buttons appear only when the owner configured a provider.
+  const [sso, setSso] = useState<{ google?: boolean; microsoft?: boolean }>({})
+  useEffect(() => {
+    fetch('/api/auth/providers').then((r) => (r.ok ? r.json() : {})).then((p: any) => setSso({ google: !!p?.google, microsoft: !!p?.['azure-ad'] })).catch(() => {})
+  }, [])
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,7 +33,7 @@ export function LoginClient() {
   const [needTotp, setNeedTotp] = useState(false)
 
   useEffect(() => {
-    if (status === 'authenticated') router.replace('/')
+    if (status === 'authenticated') router.replace(safeCallback())
   }, [status, router])
 
   const submit = async (e: React.FormEvent) => {
@@ -62,7 +77,7 @@ export function LoginClient() {
         setBusy(false)
         return
       }
-      router.replace('/')
+      router.replace(safeCallback())
     } catch {
       toast.error('Something went wrong. Please try again.')
       setBusy(false)
@@ -148,6 +163,14 @@ export function LoginClient() {
               {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
           </form>
+          {sso.google || sso.microsoft ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 text-center">Enterprise sign-in</p>
+              {sso.google ? <button type="button" onClick={() => signIn('google', { callbackUrl: safeCallback() })} className="w-full rounded-md border border-border bg-secondary/40 px-4 py-2 text-sm text-slate-200 hover:text-white">Continue with Google Workspace</button> : null}
+              {sso.microsoft ? <button type="button" onClick={() => signIn('azure-ad', { callbackUrl: safeCallback() })} className="w-full rounded-md border border-border bg-secondary/40 px-4 py-2 text-sm text-slate-200 hover:text-white">Continue with Microsoft Entra</button> : null}
+              <p className="text-[10px] text-slate-600 text-center">Your organization&apos;s e-mail domain can auto-join you to its EMIL workspace.</p>
+            </div>
+          ) : null}
           <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
             className="mt-4 w-full text-center text-xs text-cyan-400 hover:text-cyan-300">
             {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}

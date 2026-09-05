@@ -48,6 +48,7 @@ export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/journal', summary: 'Trade-journal entries (newest first)', scope: 'journal', group: 'Journal' },
   { method: 'POST', path: '/journal', summary: 'Write a journal entry', scope: 'journal', group: 'Journal', body: { symbol: 'Instrument', side: 'buy | sell', qty: 'Quantity', entryPrice: 'Entry', exitPrice: 'Exit', pnl: 'Realised P&L', notes: 'Free text', tags: 'csv', tradedAt: 'ISO timestamp' } },
   { method: 'GET', path: '/portfolio', summary: 'Consolidated portfolio & exposure across your linked venues and bridged platform accounts', scope: 'portfolio', group: 'Portfolio' },
+  { method: 'GET', path: '/org', summary: 'Your organizations: role, recommendations, pending approvals, signal channels with calculated track records', scope: 'read', group: 'Organizations' },
   { method: 'GET', path: '/bridge', summary: 'Your bridged platforms (MT5/MT4 mirror state, TradingView signal log)', scope: 'portfolio', group: 'Portfolio', notes: 'Bridges are created in EMIL → Connect Your Platform; the EA and webhook URLs are shown there.' },
   { method: 'GET', path: '/paper/venues', summary: 'Sandbox venues available to the caller', scope: 'paper_trade', group: 'Paper trading', notes: 'The API only ever reaches paper venues — live execution is not exposed.' },
   { method: 'GET', path: '/paper/orders', summary: 'Your recent paper orders', scope: 'paper_trade', group: 'Paper trading', params: [{ name: 'venue', in: 'query', description: 'Filter by venue key' }] },

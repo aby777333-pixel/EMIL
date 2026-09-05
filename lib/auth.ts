@@ -1,14 +1,41 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import GoogleProvider from 'next-auth/providers/google'
+import AzureADProvider from 'next-auth/providers/azure-ad'
 import bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { prisma } from '@/lib/db'
 import { rateLimit, rateLimitReset } from '@/lib/rate-limit'
 import { decryptSecret } from '@/lib/secrets'
 import { verifyTotp } from '@/lib/totp'
+import { autoJoinByDomain } from '@/lib/org'
+
+// Sessions are JWTs; users live in our own `users` table. OAuth providers
+// (enterprise sign-in, round C) are env-gated and map onto the same table by
+// e-mail — no adapter tables are needed, so the Prisma adapter is gone.
+export const googleSsoConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+export const microsoftSsoConfigured = () => !!(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET)
+
+async function ensureOAuthUser(email: string, name?: string | null) {
+  const lower = email.toLowerCase().trim()
+  let user = await prisma.user.findUnique({ where: { email: lower }, include: { profile: true } })
+  if (!user) {
+    // Random unusable password: SSO users sign in through their identity provider.
+    const hashed = await bcrypt.hash(randomBytes(32).toString('hex'), 10)
+    const created = await prisma.user.create({ data: { email: lower, password: hashed, name: name ?? '' } })
+    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    await prisma.customerProfile.create({ data: { userId: created.id, status: 'trial', planKey: 'trial', trialEndsAt } }).catch(() => {})
+    await prisma.auditLog.create({ data: { userId: created.id, actor: 'system', action: 'CUSTOMER SIGNUP (SSO)', category: 'crm', detail: `New customer ${lower} signed in through enterprise SSO — 14-day trial started.` } }).catch(() => {})
+    user = await prisma.user.findUnique({ where: { email: lower }, include: { profile: true } })
+  }
+  if (!user) return null
+  if (user.role !== 'admin' && (user.profile?.status === 'suspended' || user.profile?.status === 'churned')) return null
+  autoJoinByDomain(user.id, lower).catch(() => {})
+  prisma.customerProfile.update({ where: { userId: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {})
+  return user
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   providers: [
@@ -44,12 +71,30 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Your EMIL account is suspended. Contact support to restore access.')
         }
         prisma.customerProfile.update({ where: { userId: user.id }, data: { lastSeenAt: new Date() } }).catch(() => {})
+        autoJoinByDomain(user.id, email).catch(() => {})
         return { id: user.id, email: user.email, name: user.name ?? '', role: user.role } as any
       },
     }),
+    ...(googleSsoConfigured() ? [GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID as string, clientSecret: process.env.GOOGLE_CLIENT_SECRET as string, allowDangerousEmailAccountLinking: true })] : []),
+    ...(microsoftSsoConfigured() ? [AzureADProvider({ clientId: process.env.AZURE_AD_CLIENT_ID as string, clientSecret: process.env.AZURE_AD_CLIENT_SECRET as string, tenantId: process.env.AZURE_AD_TENANT_ID ?? 'common', allowDangerousEmailAccountLinking: true })] : []),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      if (!account || account.provider === 'credentials') return true
+      const email = (user?.email ?? (profile as any)?.email ?? '') as string
+      if (!email) return false
+      // Google reports verified e-mails; refuse unverified ones.
+      if (account.provider === 'google' && (profile as any)?.email_verified === false) return false
+      const ours = await ensureOAuthUser(email, user?.name)
+      return !!ours
+    },
+    async jwt({ token, user, account }) {
+      if (account && account.provider !== 'credentials' && token.email) {
+        // Map the identity-provider subject onto OUR user id.
+        const ours = await prisma.user.findUnique({ where: { email: String(token.email).toLowerCase() } })
+        if (ours) { token.sub = ours.id; (token as any).role = ours.role }
+        return token
+      }
       if (user?.id) token.sub = user.id
       if ((user as any)?.role) (token as any).role = (user as any).role
       return token

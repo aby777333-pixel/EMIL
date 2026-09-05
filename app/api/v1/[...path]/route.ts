@@ -15,6 +15,7 @@ import { ExecError, cancelGuarded, isPaperVenue, listExecutionVenues, placeGuard
 import { WEBHOOK_EVENTS, createEndpoint, dispatchDue, emitEvent, validateWebhookUrl } from '@/lib/webhooks'
 import { buildOpenApi, buildPostman, ENDPOINTS } from '@/lib/openapi'
 import { SCOPES, type Scope } from '@/lib/entitlements'
+import { OrgGuardError, orderGuard, membershipsOf, trackRecord } from '@/lib/org'
 
 export const dynamic = 'force-dynamic'
 
@@ -277,6 +278,20 @@ async function handle(req: Request, params: { path?: string[] }) {
       return json({ ok: true, ...(await consolidatedPortfolio(userId, auth.isAdmin, s('refresh') === '1')) })
     }
 
+    if (path === 'org' && method === 'GET') {
+      const ms = await membershipsOf(userId, auth.email)
+      const out = []
+      for (const mm of ms) {
+        const [recos, approvals, channels] = await Promise.all([
+          prisma.recommendation.findMany({ where: { orgId: mm.orgId }, orderBy: { createdAt: 'desc' }, take: 50 }),
+          prisma.approvalRequest.findMany({ where: { orgId: mm.orgId, status: 'pending' }, take: 50 }),
+          prisma.signalChannel.findMany({ where: { orgId: mm.orgId }, include: { posts: { orderBy: { postedAt: 'desc' }, take: 20 } } }),
+        ])
+        out.push({ org: { id: mm.org.id, name: mm.org.name, kind: mm.org.kind }, role: mm.role, desk: mm.desk, recommendations: recos, pendingApprovals: approvals.length, channels: channels.map((c) => ({ id: c.id, name: c.name, visibility: c.visibility, track: trackRecord(c.posts), posts: c.posts })) })
+      }
+      return json({ ok: true, organizations: out })
+    }
+
     if (path === 'bridge' && method === 'GET') {
       const deny = needScope(auth, 'portfolio'); if (deny) return deny
       const conns = await prisma.bridgeConnection.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, include: { positions: true, signals: { orderBy: { receivedAt: 'desc' }, take: 20 } } })
@@ -301,6 +316,8 @@ async function handle(req: Request, params: { path?: string[] }) {
         const body = await req.json().catch(() => ({}))
         const venueKey = String(body?.venue ?? '')
         if (!isPaperVenue(venueKey)) return json({ error: `"${venueKey}" is not a paper venue. GET /api/v1/paper/venues lists what you can use.` }, 400)
+        const orgCheck = await orderGuard(userId, auth.email, { symbol: String(body?.symbol ?? '').trim(), qty: Number(body?.qty), notionalUsd: body?.price && body?.qty ? Number(body.price) * Number(body.qty) : null, venue: venueKey, side: body?.side, type: body?.orderType, price: body?.price !== undefined && body?.price !== '' && body?.price !== null ? Number(body.price) : undefined })
+        if (orgCheck.requiresApproval) return json({ ok: true, paper: true, pendingApproval: true, requestId: orgCheck.requestId, message: `${orgCheck.orgName} requires approval — queued for a compliance/admin decision.` }, 202)
         const result = await placeGuarded({ userId, isAdmin: false, venueKey, req: { symbol: String(body?.symbol ?? '').trim(), side: body?.side, type: body?.orderType, qty: Number(body?.qty), price: body?.price !== undefined && body?.price !== '' && body?.price !== null ? Number(body.price) : undefined, reduceOnly: !!body?.reduceOnly } })
         emitEvent(userId, 'paper.order.placed', { venue: venueKey, order: result.order, recordId: result.record?.id ?? null, via: 'api' }).catch(() => {})
         return json({ ok: true, paper: true, order: result.order, record: result.record })
@@ -427,6 +444,7 @@ async function handle(req: Request, params: { path?: string[] }) {
     return json({ error: `Unknown endpoint ${method} /api/v1/${path}. See /api/v1/openapi.json.` }, 404)
   } catch (e: any) {
     if (e instanceof ExecError) return json({ error: e.message }, e.status)
+    if (e instanceof OrgGuardError) return json({ error: e.message }, 403)
     if (e?.rateLimited) return json({ error: 'market_data_budget', message: e.message, retryAfterSec: e.retryAfterSec ?? 30 }, 429, { 'Retry-After': String(Math.max(2, Math.round(e.retryAfterSec ?? 30))) })
     console.error('platform api error', e)
     return json({ error: e?.message ?? 'Internal error' }, 500)

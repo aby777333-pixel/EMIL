@@ -5,6 +5,7 @@ import { authOptions, requireAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { flagEnabled } from '@/lib/flags'
 import { ExecError, LIVE_MAX_NOTIONAL_USD, PAPER_MAX_NOTIONAL_USD, cancelGuarded, listExecutionVenues, placeGuarded, resolveVenue } from '@/lib/execution/router'
+import { OrgGuardError, orderGuard } from '@/lib/org'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,6 +92,9 @@ export async function POST(req: Request) {
     const venueKey = String(body?.venue ?? '')
 
     if (body?.type === 'place') {
+      // Organization desk rules (kill switch, restricted list, limits, maker-checker) run before the venue guards.
+      const orgCheck = await orderGuard(userId, (session.user.email ?? '').toLowerCase(), { symbol: String(body?.symbol ?? '').trim(), qty: Number(body?.qty), notionalUsd: body?.price && body?.qty ? Number(body.price) * Number(body.qty) : null, venue: venueKey, side: body?.side, type: body?.orderType, price: body?.price !== undefined && body?.price !== '' ? Number(body.price) : undefined })
+      if (orgCheck.requiresApproval) return NextResponse.json({ ok: true, pendingApproval: true, requestId: orgCheck.requestId, message: `${orgCheck.orgName} requires approval — the order was queued for a compliance/admin decision.` })
       const result = await placeGuarded({
         userId, isAdmin, venueKey,
         req: {
@@ -119,6 +123,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unknown request' }, { status: 400 })
   } catch (e: any) {
     if (e instanceof ExecError) return NextResponse.json({ error: e.message }, { status: e.status })
+    if (e instanceof OrgGuardError) return NextResponse.json({ error: e.message }, { status: 403 })
     console.error(e)
     return NextResponse.json({ error: e?.message ?? 'Execution request failed' }, { status: 500 })
   }

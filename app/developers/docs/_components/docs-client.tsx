@@ -21,7 +21,7 @@ const PERSONAS = [
       'Track your instruments: POST /watchlist { symbol } — any spelling resolves through the instrument master.',
       'Create alerts: POST /alerts { symbol, condition, threshold }. They evaluate on delayed research quotes and reach the bell, Telegram, email and your webhooks.',
       'Journal fills from your platform: POST /journal { symbol, side, qty, entryPrice, exitPrice, pnl }.',
-      'Coming next round: the MT5 bridge EA and TradingView alert webhooks push your live account into EMIL automatically.',
+      'Connect Your Platform (in the app) adds the MT5/MT4 bridge EA (read-only account mirror), TradingView alert webhooks and statement import — GET /bridge reads the mirrored state.',
     ],
     snippet: `const emil = new EmilClient({ apiKey, baseUrl })
 await emil.track('XAU/USD')
@@ -36,7 +36,7 @@ await emil.journalWrite({ symbol: 'XAU/USD', side: 'buy', qty: 1, entryPrice: 24
       'GET /research/report?symbol=EUR/USD for a structured, calculated write-up; GET /research/brief for the daily brief.',
       'GET /calendar and /calendar/central-banks for the week ahead; GET /news?score=1 for impact-scored headlines.',
       'Every payload carries its data label (delayed research, model assessment). Keep those labels when you show it to clients.',
-      'Coming next round: organizations, client sub-accounts, recommendation → approval workflow and white-label PDFs.',
+      'In the app: Organization → clients, recommendation → client/compliance decision → executed workflow, tokenised white-label client portals with printable PDFs, hash-chained compliance archive. GET /org returns your organizations programmatically.',
     ],
     snippet: `report = emil.report("EUR/USD")
 brief = emil.brief()
@@ -50,7 +50,7 @@ banks = emil.central_banks()`,
       'GET /portfolio for exposure across every linked venue; POST /paper/orders to validate strategies on sandbox venues (live execution is never exposed).',
       'Add a webhook for alert.triggered, risk.override and paper.order.placed; verify signatures with the SDK helper.',
       'GET /stream (Pro+) for a server-sent-events feed of quotes and EMIL state.',
-      'Coming next round: organizations with roles, maker-checker approvals, restricted lists, per-desk position limits and an org kill switch.',
+      'Desk controls live in Organization: roles (owner/admin/compliance/analyst/trader/viewer), maker-checker approvals, restricted list, per-org/desk/member position limits and a kill switch — all enforced on API paper orders too (403 with the reason, or 202 pendingApproval).',
     ],
     snippet: `await emil.createWebhook('https://risk.yourfirm.com/emil', ['alert.triggered', 'risk.override', 'paper.order.placed'])
 const venues = await emil.paperVenues()
