@@ -1,4 +1,4 @@
-import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Tv, MessagesSquare, Boxes, Briefcase, Grid3X3, Cable, Building2, CreditCard, Blocks, Database } from 'lucide-react'
+import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Boxes, Briefcase, Grid3X3, Cable, Building2, CreditCard, Blocks, Database } from 'lucide-react'
 import { EMIL_TRADE_URL } from '@/lib/emil-trade'
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
@@ -23,8 +23,9 @@ export const NAV_ITEMS = [
   { href: '/agents', label: 'Agent Council', icon: Network },
   { href: '/api-hub', label: 'Global API Hub', icon: Plug },
   { href: `${EMIL_TRADE_URL}/terminal`, label: 'EMIL Trade', icon: Radio, external: true },
-  { href: `${EMIL_TRADE_URL}/terminal/tv`, label: 'Live TV', icon: Tv, external: true },
-  { href: `${EMIL_TRADE_URL}/terminal/chat`, label: 'Live Chat', icon: MessagesSquare, external: true },
+  // Hidden for later (owner, 2026-09-05): Live TV + Live Chat stay reachable on EMIL Trade but leave the cockpit nav.
+  // { href: `${EMIL_TRADE_URL}/terminal/tv`, label: 'Live TV', icon: Tv, external: true },
+  // { href: `${EMIL_TRADE_URL}/terminal/chat`, label: 'Live Chat', icon: MessagesSquare, external: true },
   { href: '/paper', label: 'Paper Trading Desk', icon: Beaker },
   { href: '/backtest', label: 'Backtest Engine', icon: FlaskRound },
   { href: '/options', label: 'Options Analytics', icon: Sigma },
