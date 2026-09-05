@@ -528,6 +528,163 @@ model SignalPost {
   @@map("signal_posts")
 }
 
+// ============ BILLING (round D) ============
+// Plans are tracked in billing_plans; a Subscription is the customer's
+// current commercial state; Invoices are generated monthly (base + metered
+// API overage) and paid through a gateway payment link (Razorpay or Stripe,
+// env-gated) or marked paid by an admin. Gateway events are stored once.
+model Subscription {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  planKey           String    @default("trial")
+  status            String    @default("trialing") // trialing | active | past_due | cancelled
+  gateway           String?   // razorpay | stripe | manual
+  gatewayCustomerId String?
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean   @default(false)
+  billingEmail      String?
+  billingName       String?
+  taxId             String?
+  address           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  invoices          Invoice[]
+
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  userId         String
+  number         String        @unique
+  planKey        String
+  periodStart    DateTime
+  periodEnd      DateTime
+  currency       String        @default("USD")
+  baseAmount     Float         @default(0)
+  usageCalls     Int           @default(0)
+  overageAmount  Float         @default(0)
+  total          Float         @default(0)
+  status         String        @default("open") // open | paid | void | failed
+  gateway        String?
+  gatewayRef     String?       // payment link id / checkout session id
+  payUrl         String?
+  lineItems      String?       // JSON
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("invoices")
+}
+
+model PaymentEvent {
+  id          String   @id @default(cuid())
+  gateway     String
+  eventId     String   @unique
+  type        String
+  payload     String
+  processedAt DateTime @default(now())
+
+  @@map("payment_events")
+}
+
+// ============ EMBEDS, OAUTH, CHAT CHANNELS, BYO KEYS (rounds E/F) ============
+// Embed keys are PUBLIC identifiers (safe in a web page); the allowed-origins
+// list and per-key rate limits are what protect them.
+model EmbedKey {
+  id             String   @id @default(cuid())
+  userId         String
+  label          String
+  publicKey      String   @unique
+  allowedOrigins String?  // csv of origins; empty = any (not recommended)
+  widgets        String   @default("chart,news,brief,quotes,ask")
+  theme          String?  // JSON { primary, accent, background, text, logoUrl, brand }
+  status         String   @default("active") // active | revoked
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@map("embed_keys")
+}
+
+// "Connect with EMIL": third-party apps obtain scoped access tokens on a
+// customer's behalf (authorization-code flow with refresh tokens).
+model OAuthClient {
+  id               String   @id @default(cuid())
+  ownerUserId      String
+  name             String
+  clientId         String   @unique
+  clientSecretHash String
+  redirectUris     String   // csv
+  scopes           String   @default("read")
+  logoUrl          String?
+  status           String   @default("active")
+  createdAt        DateTime @default(now())
+  grants           OAuthGrant[]
+
+  @@map("oauth_clients")
+}
+
+model OAuthGrant {
+  id               String      @id @default(cuid())
+  clientId         String
+  client           OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId           String
+  scopes           String
+  codeHash         String?     @unique
+  codeExpiresAt    DateTime?
+  accessTokenHash  String?     @unique
+  accessExpiresAt  DateTime?
+  refreshTokenHash String?     @unique
+  revokedAt        DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([userId])
+  @@map("oauth_grants")
+}
+
+// Slack / Discord / Microsoft Teams incoming-webhook channels (and any
+// generic JSON URL) that receive the user's notifications.
+model NotificationChannel {
+  id         String    @id @default(cuid())
+  userId     String
+  kind       String    // slack | discord | teams | generic
+  label      String
+  webhookUrl String    // encrypted at rest
+  events     String    @default("*")
+  status     String    @default("active") // active | paused | failing
+  failCount  Int       @default(0)
+  lastSentAt DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("notification_channels")
+}
+
+// Bring-your-own keys: a customer's own data-vendor or AI key, used for that
+// customer's requests instead of the house key (their budget, their bill).
+model UserProviderKey {
+  id          String   @id @default(cuid())
+  userId      String
+  providerKey String   // twelve_data | abacus_ai | openai
+  apiKey      String   // encrypted at rest
+  label       String?
+  status      String   @default("configured") // configured | verified | error
+  lastError   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, providerKey])
+  @@map("user_provider_keys")
+}
+
 // Public status page incidents (admin-managed).
 model StatusIncident {
   id         String    @id @default(cuid())
