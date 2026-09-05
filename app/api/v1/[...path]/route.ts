@@ -277,6 +277,12 @@ async function handle(req: Request, params: { path?: string[] }) {
       return json({ ok: true, ...(await consolidatedPortfolio(userId, auth.isAdmin, s('refresh') === '1')) })
     }
 
+    if (path === 'bridge' && method === 'GET') {
+      const deny = needScope(auth, 'portfolio'); if (deny) return deny
+      const conns = await prisma.bridgeConnection.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, include: { positions: true, signals: { orderBy: { receivedAt: 'desc' }, take: 20 } } })
+      return json({ ok: true, label: 'Mirrored platform accounts — the trader\'s real numbers, read-only', connections: conns.map((c) => ({ id: c.id, kind: c.kind, label: c.label, mode: c.mode, status: c.status, accountNumber: c.accountNumber, broker: c.broker, currency: c.currency, balance: c.balance, equity: c.equity, margin: c.margin, freeMargin: c.freeMargin, floatingPnl: c.floatingPnl, lastHeartbeatAt: c.lastHeartbeatAt, positions: c.positions, signals: c.signals })) })
+    }
+
     // ---- Paper trading (sandbox venues only) ------------------------------
     if (segments[0] === 'paper') {
       const deny = needScope(auth, 'paper_trade'); if (deny) return deny

@@ -20,6 +20,8 @@ export const WEBHOOK_EVENTS = {
   'journal.created': 'A journal entry was written',
   'health.changed': 'A data provider or system component changed health state',
   'ingest.received': 'Your own pushed data batch was accepted',
+  'account.synced': 'A bridged platform account (MT5/MT4) sent a snapshot',
+  'signal.received': 'A TradingView / generic signal arrived on a bridge webhook',
   'org.member.changed': 'An organization member was added, removed or re-roled',
   'signal.published': 'A signal was published to a channel you subscribe to',
   'test.ping': 'Manual test from the developer portal',

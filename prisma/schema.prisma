@@ -317,6 +317,217 @@ model BridgeSignal {
   @@map("bridge_signals")
 }
 
+// ============ ORGANIZATIONS (institutions, advisories, trading firms) ============
+// One user can belong to several organizations. Roles gate what a member can
+// do; org settings (kill switch, approvals, restricted list, limits) are
+// enforced server-side on every paper order and recommendation.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  kind      String   @default("trading_firm") // advisory | trading_firm | institution | business | personal
+  ownerId   String
+  ssoDomain String?  // e-mail domain that auto-joins as viewer on first sign-in
+  branding  String?  // JSON { logoUrl, primary, accent, footer, reportTitle, domain }
+  settings  String?  // JSON { killSwitch, requireApprovals, disclaimer, residency, sla }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   OrgMember[]
+  clients   ClientAccount[]
+  recommendations Recommendation[]
+  restricted RestrictedInstrument[]
+  limits    PositionLimit[]
+  approvals ApprovalRequest[]
+  channels  SignalChannel[]
+  records   ComplianceRecord[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId       String?
+  email        String
+  role         String       @default("viewer") // owner | admin | compliance | analyst | trader | viewer
+  status       String       @default("invited") // invited | active | suspended
+  desk         String?
+  inviteHash   String?      @unique
+  invitedBy    String?
+  joinedAt     DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([orgId, email])
+  @@index([userId])
+  @@map("org_members")
+}
+
+model ClientAccount {
+  id           String       @id @default(cuid())
+  orgId        String
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name         String
+  email        String?
+  externalRef  String?
+  riskProfile  String?      // JSON { maxRiskPct, horizon, objectives, restricted[] }
+  notes        String?
+  status       String       @default("active") // active | archived
+  portalHash   String?      @unique // tokenised read-only client portal link
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  recommendations Recommendation[]
+
+  @@index([orgId])
+  @@map("client_accounts")
+}
+
+model Recommendation {
+  id            String        @id @default(cuid())
+  orgId         String
+  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  clientId      String?
+  client        ClientAccount? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  authorId      String
+  authorEmail   String
+  symbol        String
+  direction     String        // buy | sell | hold | reduce
+  thesis        String
+  entry         Float?
+  stop          Float?
+  target        Float?
+  horizon       String?
+  riskNote      String?
+  suitability   String?
+  status        String        @default("draft") // draft | sent | approved | declined | executed | expired
+  sentAt        DateTime?
+  decidedAt     DateTime?
+  decidedBy     String?
+  executionNote String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([orgId, status])
+  @@map("recommendations")
+}
+
+// Append-only, hash-chained archive of every compliance-relevant event in an
+// organization (recommendation state changes, approvals, limit changes,
+// kill-switch flips, member changes). Rows are never updated or deleted.
+model ComplianceRecord {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  seq       Int
+  kind      String
+  refId     String?
+  actor     String
+  payload   String
+  prevHash  String
+  hash      String
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, seq])
+  @@map("compliance_records")
+}
+
+model RestrictedInstrument {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  symbol    String
+  reason    String?
+  createdBy String
+  createdAt DateTime     @default(now())
+
+  @@unique([orgId, symbol])
+  @@map("restricted_instruments")
+}
+
+model PositionLimit {
+  id            String       @id @default(cuid())
+  orgId         String
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  scope         String       @default("org") // org | desk | member
+  scopeRef      String?      // desk name or member e-mail
+  symbol        String?      // null = any
+  maxNotionalUsd Float?
+  maxQty        Float?
+  createdBy     String
+  createdAt     DateTime     @default(now())
+
+  @@index([orgId])
+  @@map("position_limits")
+}
+
+model ApprovalRequest {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  kind        String       // paper_order | recommendation | limit_change | kill_switch
+  requesterId String
+  requesterEmail String
+  payload     String
+  status      String       @default("pending") // pending | approved | rejected | executed | failed
+  approverEmail String?
+  note        String?
+  result      String?
+  decidedAt   DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([orgId, status])
+  @@map("approval_requests")
+}
+
+model SignalChannel {
+  id          String       @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String       @unique
+  description String?
+  visibility  String       @default("org") // org | subscribers | public
+  createdBy   String
+  createdAt   DateTime     @default(now())
+  posts       SignalPost[]
+  subscribers ChannelSubscription[]
+
+  @@map("signal_channels")
+}
+
+model ChannelSubscription {
+  id        String        @id @default(cuid())
+  channelId String
+  channel   SignalChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime      @default(now())
+
+  @@unique([channelId, userId])
+  @@map("channel_subscriptions")
+}
+
+model SignalPost {
+  id          String        @id @default(cuid())
+  channelId   String
+  channel     SignalChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorEmail String
+  symbol      String
+  direction   String        // long | short
+  entry       Float?
+  stop        Float?
+  target      Float?
+  timeframe   String?
+  rationale   String?
+  status      String        @default("open") // open | closed | cancelled
+  outcomePct  Float?
+  postedAt    DateTime      @default(now())
+  closedAt    DateTime?
+
+  @@index([channelId, postedAt])
+  @@map("signal_posts")
+}
+
 // Public status page incidents (admin-managed).
 model StatusIncident {
   id         String    @id @default(cuid())

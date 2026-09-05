@@ -118,6 +118,24 @@ export async function consolidatedPortfolio(userId: string, isAdmin: boolean, fo
       }
     }))
 
+    // ---- bridged platform accounts (MT5/MT4 mirror — the trader's REAL numbers) ----
+    const bridges = await prisma.bridgeConnection.findMany({ where: { userId, kind: { in: ['mt5', 'mt4'] } }, include: { positions: true } }).catch(() => [])
+    for (const b of bridges) {
+      for (const p of b.positions) {
+        const { canonical, assetClass } = classify(p.symbol, 'forex')
+        const def = resolveInstrument(p.symbol)
+        const contract = (def as any)?.contractSize ?? (assetClass === 'forex' ? 100_000 : assetClass === 'metals' ? 100 : 1)
+        const mark = p.currentPrice ?? p.entryPrice ?? null
+        positions.push({
+          source: 'venue', venue: `${b.label} (${b.kind.toUpperCase()} bridge)`, paper: false, symbol: p.symbol, canonical, assetClass,
+          qty: p.volume * (p.side === 'sell' ? -1 : 1), side: p.side === 'sell' ? 'short' : 'long', entry: p.entryPrice, mark, upnl: p.profit,
+          notionalUsd: mark ? Math.abs(p.volume * contract * mark) : null,
+        })
+      }
+      const stale = !b.lastHeartbeatAt || Date.now() - new Date(b.lastHeartbeatAt).getTime() > 120_000
+      accounts.push({ source: 'venue', key: `bridge:${b.id}`, label: `${b.label} — ${b.broker ?? b.kind.toUpperCase()} ${b.accountNumber ?? ''}`.trim(), paper: false, currency: b.currency ?? 'USD', balanceUsd: b.balance, equityUsd: b.equity, unconverted: [], positions: b.positions.length, error: stale ? 'bridge stale — terminal not sending' : null })
+    }
+
     // ---- exposure map ----
     const agg = (by: (p: PortfolioPosition) => string) => {
       const m = new Map<string, { gross: number; net: number; count: number }>()
