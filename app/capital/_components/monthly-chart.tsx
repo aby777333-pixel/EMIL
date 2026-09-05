@@ -10,8 +10,10 @@ export default function MonthlyChart({ monthly }: { monthly: any[] }) {
         <XAxis dataKey="month" tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
         <YAxis tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v: any) => `$${v}`} />
         <Tooltip
-          contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11 }}
+          contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11, color: '#f1f5f9' }}
           labelStyle={{ color: '#94a3b8' }}
+          itemStyle={{ color: '#f1f5f9' }}
+          formatter={(v: any) => [`$${Number(v).toLocaleString()}`, 'Monthly P/L']}
           cursor={{ fill: 'rgba(96,181,255,0.06)' }}
           offset={28}
           allowEscapeViewBox={{ x: false, y: true }}

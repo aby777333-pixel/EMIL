@@ -111,7 +111,7 @@ export default function SettingsClient() {
         <p className="text-xs text-slate-500 mt-1">EMIL never acts outside granted permissions. Every change is consent-logged and auditable.</p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 min-w-0 [&>*]:min-w-0">
         <TwoFactorPanel />
         <DeliveryPanel />
       </div>

@@ -18,7 +18,9 @@ const PRESETS: { a: string; b: string; label: string }[] = [
   { a: 'USO', b: 'USD/CAD', label: 'Oil (USO) vs USD/CAD' },
   { a: 'AAPL', b: 'QQQ', label: 'Apple vs Nasdaq (QQQ)' },
 ]
-const PERIODS = [{ bars: 90, label: '3M' }, { bars: 180, label: '6M' }, { bars: 365, label: '1Y' }, { bars: 500, label: '2Y' }]
+// Calendar-day windows (not bar counts): 2Y means the previous ~24 months for
+// every instrument, whether it trades 5 or 7 days a week.
+const PERIODS = [{ days: 90, label: '3M' }, { days: 180, label: '6M' }, { days: 365, label: '1Y' }, { days: 730, label: '2Y' }]
 
 const REGIME_TONE: Record<string, string> = {
   stable: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
@@ -30,7 +32,7 @@ const REGIME_TONE: Record<string, string> = {
 export default function CorrelationClient() {
   const [a, setA] = useState('XAU/USD')
   const [b, setB] = useState('EUR/USD')
-  const [bars, setBars] = useState(180)
+  const [days, setDays] = useState(180)
   const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,12 +40,12 @@ export default function CorrelationClient() {
   const chartRef = useRef<any>(null)
   const retryTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const run = useCallback(async (symA: string, symB: string, nBars: number) => {
+  const run = useCallback(async (symA: string, symB: string, nDays: number) => {
     if (retryTimer.current) { clearInterval(retryTimer.current); retryTimer.current = null }
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/data?fn=correlation&a=${encodeURIComponent(symA)}&b=${encodeURIComponent(symB)}&bars=${nBars}`, { cache: 'no-store' })
+      const res = await fetch(`/api/data?fn=correlation&a=${encodeURIComponent(symA)}&b=${encodeURIComponent(symB)}&days=${nDays}`, { cache: 'no-store' })
       const d = await res.json()
       if (res.status === 429 && d?.retryAfterSec) {
         let s = Math.ceil(d.retryAfterSec)
@@ -54,7 +56,7 @@ export default function CorrelationClient() {
           if (s <= 0) {
             if (retryTimer.current) clearInterval(retryTimer.current)
             retryTimer.current = null
-            run(symA, symB, nBars)
+            run(symA, symB, nDays)
           } else {
             setError(`Per-minute market-data budget reached — calculating automatically in ${s}s…`)
           }
@@ -92,7 +94,7 @@ export default function CorrelationClient() {
   }, [])
 
   useEffect(() => {
-    run(a, b, bars)
+    run(a, b, days)
     return () => {
       chartRef.current?.remove?.()
       chartRef.current = null
@@ -117,14 +119,14 @@ export default function CorrelationClient() {
           <input value={b} onChange={(e) => setB(e.target.value.toUpperCase())} className="w-32 rounded-md bg-background border border-border px-2.5 py-1.5 text-xs text-white num" placeholder="Symbol B" />
           <div className="flex gap-1">
             {PERIODS.map((p) => (
-              <button key={p.bars} onClick={() => setBars(p.bars)} className={`rounded px-2 py-1 text-[10px] font-bold border ${bars === p.bars ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' : 'bg-secondary/40 text-slate-400 border-border'}`}>{p.label}</button>
+              <button key={p.days} onClick={() => { setDays(p.days); if (a.trim() && b.trim()) run(a.trim(), b.trim(), p.days) }} title={`Previous ${p.days} calendar days`} className={`rounded px-2 py-1 text-[10px] font-bold border ${days === p.days ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' : 'bg-secondary/40 text-slate-400 border-border'}`}>{p.label}</button>
             ))}
           </div>
-          <button onClick={() => { if (a.trim() && b.trim()) run(a.trim(), b.trim(), bars); else toast.error('Both symbols required.') }} disabled={loading} className="flex items-center gap-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-1.5"><Play className="h-3.5 w-3.5" /> {loading ? 'CALCULATING…' : 'ANALYSE'}</button>
+          <button onClick={() => { if (a.trim() && b.trim()) run(a.trim(), b.trim(), days); else toast.error('Both symbols required.') }} disabled={loading} className="flex items-center gap-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-1.5"><Play className="h-3.5 w-3.5" /> {loading ? 'CALCULATING…' : 'ANALYSE'}</button>
         </div>
         <div className="flex gap-1.5 flex-wrap mb-3">
           {PRESETS.map((p) => (
-            <button key={p.label} onClick={() => { setA(p.a); setB(p.b); run(p.a, p.b, bars) }} className="rounded-full px-2.5 py-1 text-[10px] border border-cyan-500/25 bg-cyan-500/5 text-cyan-300/90 hover:bg-cyan-500/15">{p.label}</button>
+            <button key={p.label} onClick={() => { setA(p.a); setB(p.b); run(p.a, p.b, days) }} className="rounded-full px-2.5 py-1 text-[10px] border border-cyan-500/25 bg-cyan-500/5 text-cyan-300/90 hover:bg-cyan-500/15">{p.label}</button>
           ))}
         </div>
 
@@ -133,7 +135,7 @@ export default function CorrelationClient() {
         {result ? (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-3">
-              <Stat size="sm" label="Overall Correlation" value={fmtC(result.overallCorrelation)} valueClass={Math.abs(result.overallCorrelation) > 0.6 ? 'text-amber-300' : 'text-white'} sub={`${result.sessions} overlapping sessions`} />
+              <Stat size="sm" label="Overall Correlation" value={fmtC(result.overallCorrelation)} valueClass={Math.abs(result.overallCorrelation) > 0.6 ? 'text-amber-300' : 'text-white'} sub={`${result.sessions} overlapping sessions${result.firstSession ? ` · ${String(result.firstSession).slice(0, 10)} → ${String(result.lastSession).slice(0, 10)}` : ''}`} />
               <Stat size="sm" label={`Rolling ${result.rollingWindow}-Session (now)`} value={fmtC(result.recentCorrelation)} valueClass="text-cyan-300" />
               <Stat size="sm" label="Historical Normal" value={fmtC(result.averageRollingCorrelation)} sub="avg of rolling windows" />
               <Stat size="sm" label={`Beta (${result.symbolA} on ${result.symbolB})`} value={fmtC(result.betaAonB)} />

@@ -84,8 +84,9 @@ export default function ProvidersClient() {
         <Stat label="Disabled" value={providers.filter((p) => !p.enabled).length} />
       </div>
 
-      {Object.entries(byCategory).map(([cat, list]) => (
-        <Panel key={cat} title={`${CATEGORY_LABELS[cat] ?? cat} (${list.length})`} icon={Database} accent="cyan">
+      {Object.entries(byCategory).map(([cat, list], idx) => (
+        <Panel key={cat} title={`${CATEGORY_LABELS[cat] ?? cat} (${list.length})`} icon={Database} accent="cyan" collapsible chevron="right" defaultOpen={idx === 0}
+          headerExtra={<span className="text-[10px] text-slate-500 normal-case tracking-normal">{list.filter((p) => p.status === 'healthy').length} healthy · {list.filter((p) => p.lastError).length} with errors</span>}>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {list.map((p) => (
               <div key={p.key} className={`rounded-md border p-3 ${p.enabled ? 'border-border bg-background/40' : 'border-border/50 bg-background/20 opacity-60'}`}>

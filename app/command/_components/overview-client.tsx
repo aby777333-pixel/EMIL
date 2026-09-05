@@ -41,13 +41,14 @@ export default function OverviewClient() {
         <p className="text-xs text-slate-500 mt-1">The business and platform pulse — customers, revenue, connectivity and system health in one place.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <Stat label="Customers" value={data.totalCustomers ?? 0} sub={`${data.newThisWeek ?? 0} new this week`} valueClass="text-amber-300" />
         <Stat label="Active (paying)" value={s.active ?? 0} valueClass="text-emerald-300" />
         <Stat label="On Trial" value={s.trial ?? 0} valueClass="text-cyan-300" />
         <Stat label="Suspended / Churned" value={(s.suspended ?? 0) + (s.churned ?? 0)} valueClass={(s.suspended ?? 0) ? 'text-red-300' : 'text-white'} />
         <Stat label="MRR (from active plans)" value={`$${Math.round(data.mrr ?? 0).toLocaleString()}`} valueClass="text-emerald-300" />
-        <Stat label="API Keys · Broker Links" value={`${data.apiKeyCount ?? 0} · ${data.connectionCount ?? 0}`} sub="active keys · customer connections" />
+        <Stat label="Active API Keys" value={data.apiKeyCount ?? 0} valueClass="text-cyan-300" />
+        <Stat label="Customer Connections" value={data.connectionCount ?? 0} valueClass="text-amber-300" sub="linked broker accounts" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

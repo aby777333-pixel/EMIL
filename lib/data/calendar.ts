@@ -81,7 +81,10 @@ export const CENTRAL_BANKS: { key: string; name: string; short: string; currency
   { key: 'boc', name: 'Bank of Canada', short: 'BoC', currency: 'CAD', titles: /overnight rate|boc/i, site: 'https://www.bankofcanada.ca/core-functions/monetary-policy/' },
   { key: 'snb', name: 'Swiss National Bank', short: 'SNB', currency: 'CHF', titles: /snb policy rate|snb/i, site: 'https://www.snb.ch/en/the-snb/mandates-goals/monetary-policy' },
   { key: 'rbnz', name: 'Reserve Bank of New Zealand', short: 'RBNZ', currency: 'NZD', titles: /official cash rate|rbnz/i, site: 'https://www.rbnz.govt.nz/monetary-policy' },
-  { key: 'pboc', name: "People's Bank of China", short: 'PBoC', currency: 'CNY', titles: /loan prime rate|pboc/i, site: 'http://www.pbc.gov.cn/en/' },
+  // pbc.gov.cn geo-blocks most non-China visitors (403 nginx, verified 2026-09-05).
+  // The Loan Prime Rate is published by CFETS (China Foreign Exchange Trade
+  // System, PBoC-authorised) on chinamoney.com.cn, which is reachable worldwide.
+  { key: 'pboc', name: "People's Bank of China", short: 'PBoC', currency: 'CNY', titles: /loan prime rate|pboc/i, site: 'https://www.chinamoney.com.cn/english/bmklpr/' },
   { key: 'rbi', name: 'Reserve Bank of India', short: 'RBI', currency: 'INR', titles: /repo rate|rbi/i, site: 'https://www.rbi.org.in/' },
 ]
 

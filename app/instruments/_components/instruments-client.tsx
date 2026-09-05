@@ -25,6 +25,9 @@ export default function InstrumentsClient() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [q, setQ] = useState('')
   const [market, setMarket] = useState<string>('all')
+  // Collapsed market sections (all expanded by default). A live search or a
+  // single-market filter force-expands so matches are never hidden.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetch('/api/instruments?all=1', { cache: 'no-store' }).then((r) => r.json()).then((d) => setRows(d?.instruments ?? [])).catch(() => setRows([]))
@@ -69,8 +72,19 @@ export default function InstrumentsClient() {
         </div>
       </div>
 
+      {rows && groups.length > 1 ? (
+        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          <button onClick={() => setCollapsed({})} className="hover:text-slate-200">Expand all</button>
+          <span className="text-slate-700">·</span>
+          <button onClick={() => setCollapsed(Object.fromEntries(groups.map(([m]) => [m, true])))} className="hover:text-slate-200">Collapse all</button>
+        </div>
+      ) : null}
+
       {!rows ? <LoadingPanel text="Loading instrument master..." /> : groups.length === 0 ? <p className="text-xs text-slate-500">Nothing matches.</p> : groups.map(([m, list]) => (
-        <Panel key={m} title={`${marketLabel(m)} · ${list.length}`} icon={Boxes} accent={m === 'india' ? 'emerald' : m === 'crypto' ? 'amber' : 'cyan'}>
+        <Panel key={m} title={`${marketLabel(m)} · ${list.length}`} icon={Boxes} accent={m === 'india' ? 'emerald' : m === 'crypto' ? 'amber' : 'cyan'}
+          collapsible chevron="right"
+          open={q.trim() !== '' || market !== 'all' || !collapsed[m]}
+          onToggle={() => setCollapsed((c) => ({ ...c, [m]: !c[m] }))}>
           <div className="overflow-x-auto scrollbar-thin">
             <table className="w-full text-left">
               <thead>

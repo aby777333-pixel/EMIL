@@ -267,6 +267,22 @@ export default function RiskClient() {
                 {DURATIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
               </select>
             </label>
+            {/* Override History sits directly under the controls so the left column fills the space beside the warning card. */}
+            <div className="rounded-md border border-border bg-background/40 p-3">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Override History</h4>
+              {overrides.length === 0 ? <p className="text-[11px] text-slate-600">No overrides recorded yet.</p> : (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto scrollbar-thin pr-1">
+                  {overrides.map((o: any) => (
+                    <div key={o?.id} className="text-[11px] text-slate-400 flex flex-wrap gap-x-2">
+                      <span className="text-slate-300 font-medium">{o?.parameter}</span>
+                      <span className="num">{o?.previousValue} → <span className="text-amber-300">{o?.newValue}</span></span>
+                      <span className="capitalize">({(o?.duration ?? '').replace(/_/g, ' ')})</span>
+                      <span className="text-slate-600">{o?.createdAt ? new Date(o.createdAt).toLocaleString('en-US', { timeZone: 'UTC' }) : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-4">
             <h3 className="text-sm font-bold text-amber-300 mb-2">Higher Exposure Warning</h3>
@@ -294,21 +310,6 @@ export default function RiskClient() {
             <p className="text-[10px] text-slate-500 mt-2">“EMIL, make it bigger” is never sufficient authorization. Every override is written to the audit log.</p>
           </div>
         </div>
-        {overrides.length > 0 ? (
-          <div className="mt-4">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Override History</h4>
-            <div className="space-y-1.5">
-              {overrides.map((o: any) => (
-                <div key={o?.id} className="text-[11px] text-slate-400 flex flex-wrap gap-x-2">
-                  <span className="text-slate-300 font-medium">{o?.parameter}</span>
-                  <span className="num">{o?.previousValue} → <span className="text-amber-300">{o?.newValue}</span></span>
-                  <span className="capitalize">({(o?.duration ?? '').replace(/_/g, ' ')})</span>
-                  <span className="text-slate-600">{o?.createdAt ? new Date(o.createdAt).toLocaleString('en-US', { timeZone: 'UTC' }) : ''}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </Panel>
     </div>
   )

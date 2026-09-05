@@ -9,7 +9,7 @@
 // RESEARCH DATA — delayed feed, never an execution price.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Panel, LoadingPanel } from '@/components/cockpit/panel'
+import { Panel } from '@/components/cockpit/panel'
 import { CandlestickChart, Search, TrendingUp, GitCompareArrows, Crosshair, Save, Star, Trash2, X, Minus, FileText } from 'lucide-react'
 import ReportPanel from './report-panel'
 import toast from 'react-hot-toast'
@@ -392,8 +392,17 @@ export default function ChartsClient() {
 
         {error ? <p className="text-xs text-amber-300 mb-2">{error}</p> : null}
         {meta?.cmpNote ? <p className="text-xs text-rose-300 mb-2">{meta.cmpNote}</p> : null}
-        <div ref={containerRef} className={`w-full rounded-md border border-border bg-background/40 ${showRsi ? 'min-h-[560px]' : 'min-h-[460px]'} ${placing ? 'cursor-crosshair ring-1 ring-amber-500/60' : ''}`} />
-        {loading ? <LoadingPanel text={`Loading ${symbol} ${interval}...`} /> : null}
+        <div className="relative">
+          <div ref={containerRef} className={`w-full rounded-md border border-border bg-background/40 ${showRsi ? 'min-h-[560px]' : 'min-h-[460px]'} ${placing ? 'cursor-crosshair ring-1 ring-amber-500/60' : ''}`} />
+          {/* The loading state overlays the chart area itself, centred, so it is visible without scrolling. */}
+          {loading ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/60 backdrop-blur-[1px]" aria-live="polite">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card/95 px-4 py-2.5 text-sm text-slate-300 shadow-lg">
+                <span className="h-2.5 w-2.5 rounded-full bg-cyan-500 pulse-dot" /> Loading {symbol} {interval}…
+              </div>
+            </div>
+          ) : null}
+        </div>
         {meta ? (
           <p className="text-[10px] text-slate-500 mt-2">
             <span className="text-slate-300 num">{meta.symbol}</span>{meta.exchange ? ` · ${meta.exchange}` : ''}{meta.currency ? ` · ${meta.currency}` : ''} · {meta.bars} bars · last {typeof meta.last === 'number' ? meta.last.toLocaleString() : '—'} ·{' '}

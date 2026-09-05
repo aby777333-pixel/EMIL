@@ -113,6 +113,7 @@ export default function CrmClient() {
             <thead>
               <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-border">
                 <th className="py-1.5 pr-3">Customer</th>
+                <th className="py-1.5 pr-3">Role</th>
                 <th className="py-1.5 pr-3">Status</th>
                 <th className="py-1.5 pr-3">Plan</th>
                 <th className="py-1.5 pr-3">Company / Country</th>
@@ -125,9 +126,10 @@ export default function CrmClient() {
               {users.map((u: any) => (
                 <tr key={u.id} className="border-b border-border/40 hover:bg-accent/30 transition-colors">
                   <td className="py-2 pr-3">
-                    <p className="text-[11px] text-slate-200">{u.email} {u.role === 'admin' ? <span className="text-[9px] text-red-300 uppercase font-bold">admin</span> : null}</p>
+                    <p className="text-[11px] text-slate-200">{u.email}</p>
                     <p className="text-[10px] text-slate-500">{u.name || '—'}</p>
                   </td>
+                  <td className="py-2 pr-3"><span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${u.role === 'admin' ? 'text-red-300 border-red-500/40 bg-red-500/10' : 'text-slate-300 border-slate-500/40 bg-slate-500/10'}`}>{u.role ?? 'trader'}</span></td>
                   <td className="py-2 pr-3"><span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${STATUS_TONE[u.profile?.status ?? 'trial']}`}>{u.profile?.status ?? 'trial'}</span></td>
                   <td className="py-2 pr-3 text-[11px] text-slate-300 capitalize">{u.profile?.planKey ?? 'trial'}</td>
                   <td className="py-2 pr-3 text-[10px] text-slate-500">{u.profile?.company || '—'}{u.profile?.country ? ` · ${u.profile.country}` : ''}</td>
@@ -138,7 +140,7 @@ export default function CrmClient() {
                   </td>
                 </tr>
               ))}
-              {users.length === 0 ? <tr><td colSpan={7} className="py-6 text-center text-xs text-slate-500">No customers match.</td></tr> : null}
+              {users.length === 0 ? <tr><td colSpan={8} className="py-6 text-center text-xs text-slate-500">No customers match.</td></tr> : null}
             </tbody>
           </table>
         </div>

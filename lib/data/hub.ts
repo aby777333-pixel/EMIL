@@ -279,17 +279,22 @@ const TS_INTERVALS = ['1min', '5min', '15min', '30min', '1h', '4h', '1day', '1we
 
 const TS_TTL: Record<string, number> = { '1min': 120, '5min': 180, '15min': 300, '30min': 300, '1h': 900, '4h': 1800, '1day': 3600, '1week': 21600, '1month': 43200 }
 
-export async function timeSeries(symbol: string, interval = '1day', outputsize = 90) {
+// `startDate` (YYYY-MM-DD) switches the request to a calendar window: Twelve
+// Data returns every bar from that date onward (outputsize raised to fit), so a
+// "2 years" request covers two years whether the instrument trades 5 or 7 days
+// a week. One credit either way.
+export async function timeSeries(symbol: string, interval = '1day', outputsize = 90, startDate?: string) {
   const apiKey = await tdKey()
   if (!apiKey) {
     return { provider: 'twelve_data', needsKey: true, message: 'Add a free Twelve Data API key in Command Center → Data Providers to enable time series.', freshness: 'delayed' as const, fetchedAt: new Date().toISOString(), data: [] as any[] }
   }
   const iv = TS_INTERVALS.includes(interval) ? interval : '1day'
-  const size = Math.max(2, Math.min(500, Math.round(outputsize) || 90))
+  const start = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : null
+  const size = Math.max(2, Math.min(start ? 1200 : 500, Math.round(outputsize) || 90))
   const sym = symbol.trim().toUpperCase()
-  return cachedFetch(`ts_${sym}_${iv}_${size}`, TS_TTL[iv] ?? 900, () => timed('twelve_data', async () => {
+  return cachedFetch(`ts_${sym}_${iv}_${size}${start ? `_${start}` : ''}`, TS_TTL[iv] ?? 900, () => timed('twelve_data', async () => {
     await reserveTdCredits(1)
-    const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=${size}&apikey=${apiKey}`)
+    const res = await timeoutFetch(`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${iv}&outputsize=${size}${start ? `&start_date=${start}` : ''}&apikey=${apiKey}`)
     if (!res.ok) throw tdError(`Twelve Data responded ${res.status}`)
     const body = await res.json()
     if (body?.status !== 'ok' || !Array.isArray(body?.values)) throw tdError(`Twelve Data: ${String(body?.message ?? 'no data for this symbol/interval').slice(0, 200)}`)
@@ -304,9 +309,14 @@ export async function timeSeries(symbol: string, interval = '1day', outputsize =
 // ---- Correlation engine (spec §97–98): CALCULATED analytics from cached
 // daily series — Pearson, rolling window, beta, relative volatility, and
 // current-vs-period comparison. Two TD credits max per uncached pair.
-export async function correlationPair(symbolA: string, symbolB: string, bars = 180) {
-  const size = Math.max(30, Math.min(500, bars))
-  const [a, b] = await Promise.all([timeSeries(symbolA, '1day', size), timeSeries(symbolB, '1day', size)])
+// `days` (calendar days back from today) is the honest window: a bar count
+// spans very different periods for a 7-day crypto series and a 5-day equity
+// series, which made the old "2Y" (500 bars) stop at ~16 months on crypto pairs.
+export async function correlationPair(symbolA: string, symbolB: string, bars = 180, days?: number) {
+  const win = days && Number.isFinite(days) ? Math.max(30, Math.min(1100, Math.round(days))) : null
+  const startDate = win ? new Date(Date.now() - win * 86400000).toISOString().slice(0, 10) : undefined
+  const size = win ? win + 10 : Math.max(30, Math.min(500, bars))
+  const [a, b] = await Promise.all([timeSeries(symbolA, '1day', size, startDate), timeSeries(symbolB, '1day', size, startDate)])
   if ((a as any).needsKey || (b as any).needsKey) return { needsKey: true, message: (a as any).message ?? (b as any).message }
   const mapA = new Map((a as any).data.map((x: any) => [x.time, x.close]))
   const joined: { time: string; ra: number; rb: number }[] = []
@@ -356,6 +366,9 @@ export async function correlationPair(symbolA: string, symbolB: string, bars = 1
     fetchedAt: new Date().toISOString(),
     symbolA: (a as any).symbol, symbolB: (b as any).symbol,
     sessions: joined.length,
+    windowDays: win,
+    firstSession: joined[0]?.time ?? null,
+    lastSession: joined[joined.length - 1]?.time ?? null,
     overallCorrelation: overall,
     recentCorrelation: recent,
     averageRollingCorrelation: avgRolling,

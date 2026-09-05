@@ -20,7 +20,7 @@ export default function EquityChart({ points }: { points: any[] }) {
         <XAxis dataKey="date" tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} interval="preserveStartEnd" />
         <YAxis yAxisId="eq" tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} domain={['auto', 'auto']} tickFormatter={(v: any) => `$${Math.round(v / 100) / 10}k`} />
         <YAxis yAxisId="dd" orientation="right" tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v: any) => `${v}%`} />
-        <Tooltip contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11 }} labelStyle={{ color: '#94a3b8' }} />
+        <Tooltip contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11, color: '#f1f5f9' }} labelStyle={{ color: '#94a3b8' }} itemStyle={{ color: '#f1f5f9' }} />
         <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
         <Area yAxisId="eq" type="monotone" dataKey="equity" name="Equity" stroke="#80D8C3" strokeWidth={2} fill="url(#eqGrad)" animationDuration={900} />
         <Line yAxisId="dd" type="monotone" dataKey="drawdown" name="Drawdown %" stroke="#FF6363" strokeWidth={1.5} dot={false} animationDuration={900} />

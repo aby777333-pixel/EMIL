@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { cryptoMarkets, fxRates, marketBoard, newsFeed, timeSeries, correlationPair } from '@/lib/data/hub'
+import { withGoLinks } from '@/lib/news-link'
 import { cryptoVenueBoard } from '@/lib/data/crypto-venues'
 import { optionsChain } from '@/lib/data/deribit-options'
 import { centralBankMonitor, economicCalendar } from '@/lib/data/calendar'
@@ -59,10 +60,10 @@ export async function GET(req: Request) {
         const scored = await scoreHeadlines(feed?.data ?? []).catch(() => null)
         if (scored?.items) {
           const byIdx = new Map(scored.items.map((x: any) => [x.i, x]))
-          return NextResponse.json({ ok: true, ...feed, data: (feed?.data ?? []).map((a: any, i: number) => ({ ...a, impact: byIdx.get(i) ?? null })), scoring: { model: scored.model, fetchedAt: scored.fetchedAt, label: 'model assessment' } })
+          return NextResponse.json({ ok: true, ...feed, data: withGoLinks((feed?.data ?? []).map((a: any, i: number) => ({ ...a, impact: byIdx.get(i) ?? null }))), scoring: { model: scored.model, fetchedAt: scored.fetchedAt, label: 'model assessment' } })
         }
       }
-      return NextResponse.json({ ok: true, ...feed })
+      return NextResponse.json({ ok: true, ...feed, data: withGoLinks(feed?.data ?? []) })
     }
     if (fn === 'time_series') {
       const rawSymbol = (url.searchParams.get('symbol') ?? '').slice(0, 24)
@@ -78,11 +79,19 @@ export async function GET(req: Request) {
       const b = toTwelveData((url.searchParams.get('b') ?? '').slice(0, 24)).symbol
       if (!a || !b) return NextResponse.json({ error: 'a and b symbol parameters required' }, { status: 400 })
       const bars = parseInt(url.searchParams.get('bars') ?? '180', 10)
-      return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars)) })
+      const daysRaw = parseInt(url.searchParams.get('days') ?? '', 10)
+      const days = Number.isFinite(daysRaw) && daysRaw > 0 ? daysRaw : undefined
+      return NextResponse.json({ ok: true, ...(await correlationPair(a, b, bars, days)) })
     }
     return NextResponse.json({ error: `Unknown function "${fn}". Available: crypto_markets, crypto_venues, options_chain, econ_calendar, central_banks, fx_rates, market_board, news, time_series, correlation.` }, { status: 400 })
   } catch (e: any) {
     if (e?.rateLimited) {
+      // Daily cap: pass the honest message and a retry-after that points at the 00:00 UTC reset,
+      // so clients back off for hours instead of hammering every minute.
+      if (e.daily) {
+        const retryAfterSec = Math.max(60, Math.round(e.retryAfterSec ?? 3600))
+        return NextResponse.json({ error: 'rate_limited', daily: true, retryAfterSec, message: e.message }, { status: 429, headers: { 'Retry-After': String(retryAfterSec) } })
+      }
       const retryAfterSec = Math.max(2, Math.min(65, e.retryAfterSec ?? 30))
       return NextResponse.json(
         { error: 'rate_limited', retryAfterSec, message: `Per-minute market-data budget reached (free plan). EMIL will not fake data — it retries automatically in ~${retryAfterSec}s.` },

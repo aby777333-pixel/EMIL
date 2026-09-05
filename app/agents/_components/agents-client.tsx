@@ -65,7 +65,7 @@ export default function AgentsClient() {
         <p className="text-xs text-slate-500 mt-1">{agents.length} specialized agents deliberate on every decision. The Guardian holds unconditional veto power.</p>
       </div>
 
-      <Panel title="Decision Pipeline — 29 Steps Every Trade Must Survive" icon={Workflow} accent="cyan">
+      <Panel title="Decision Pipeline — 29 Steps Every Trade Must Survive" icon={Workflow} accent="cyan" collapsible defaultOpen>
         {active ? (
           <p className="text-[11px] text-slate-400 mb-3">Active candidate: <span className="text-white font-semibold">{active?.instrument?.symbol} {active?.direction}</span> — currently at stage <span className="text-cyan-300 font-semibold">{(active?.pipelineStage ?? '').replace(/_/g, ' ')}</span></p>
         ) : <p className="text-[11px] text-slate-500 mb-3">No candidate currently in the pipeline.</p>}
@@ -91,6 +91,7 @@ export default function AgentsClient() {
         if (list.length === 0) return null
         return (
           <Panel key={cat} title={`${meta.label} (${list.length})`} icon={cat === 'guardian' ? ShieldCheck : Bot}
+            collapsible defaultOpen={false}
             accent={cat === 'guardian' || cat === 'risk' ? 'red' : cat === 'learning' ? 'violet' : cat === 'knowledge' ? 'emerald' : 'cyan'}>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
               {list.map((a: any) => {

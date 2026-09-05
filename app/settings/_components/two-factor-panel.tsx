@@ -31,25 +31,25 @@ export default function TwoFactorPanel() {
   }
 
   return (
-    <Panel title="Two-Factor Authentication" icon={ShieldCheck} accent="emerald">
+    <Panel title="Two-Factor Authentication" icon={ShieldCheck} accent="emerald" className="min-w-0 overflow-hidden">
       {!state ? <p className="text-xs text-slate-500">Loading…</p> : state.totpEnabled ? (
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <p className="text-xs text-emerald-300 font-semibold">2FA is ON — sign-in requires your authenticator code.</p>
-          <div className="flex gap-1.5 items-center">
+          <div className="flex flex-wrap gap-1.5 items-center">
             <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" placeholder="Current 6-digit code" className="rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-xs text-white w-44" />
             <button onClick={async () => { const r = await post({ type: 'totp_disable', code }); if (r?.ok) { toast.success('2FA disabled.'); setCode(''); load() } }} disabled={busy || code.length < 6} className="rounded-md border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-300 disabled:opacity-50">Disable 2FA</button>
           </div>
         </div>
       ) : enrol ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <img src={enrol.qr} alt="Scan with your authenticator app" className="rounded-md border border-border bg-white w-44 h-44" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-4 min-w-0">
+          <div className="min-w-0">
+            <img src={enrol.qr} alt="Scan with your authenticator app" className="rounded-md border border-border bg-white w-44 h-44 max-w-full" />
             <p className="text-[10px] text-slate-500 mt-1">Can&apos;t scan? Enter this key manually:</p>
             <p className="font-mono text-[11px] text-amber-200 break-all">{enrol.secret}</p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <p className="text-xs text-slate-300">Scan the QR with Google Authenticator, Authy, 1Password or any TOTP app, then enter the 6-digit code it shows to activate.</p>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               <input value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" placeholder="6-digit code" className="rounded-md bg-secondary/60 border border-border px-2.5 py-1.5 text-xs text-white w-36" />
               <button onClick={async () => { const r = await post({ type: 'totp_confirm', code }); if (r?.ok) { toast.success('2FA enabled.'); setEnrol(null); setCode(''); load() } }} disabled={busy || code.length < 6} className="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-1.5 text-[11px] font-semibold text-white">Activate</button>
               <button onClick={() => setEnrol(null)} className="rounded-md border border-border px-2.5 py-1.5 text-[11px] text-slate-400">Cancel</button>

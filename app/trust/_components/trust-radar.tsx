@@ -11,7 +11,7 @@ export default function TrustRadar({ data }: { data: any[] }) {
         <PolarGrid stroke="#1e293b" />
         <PolarAngleAxis dataKey="factor" tick={{ fontSize: 10, fill: '#94a3b8' }} />
         <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9, fill: '#475569' }} />
-        <Tooltip contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11 }} labelStyle={{ color: '#94a3b8' }} />
+        <Tooltip contentStyle={{ background: '#0f1520', border: '1px solid #1e293b', fontSize: 11, color: '#f1f5f9' }} labelStyle={{ color: '#94a3b8' }} itemStyle={{ color: '#f1f5f9' }} />
         <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
         <Radar name="Trust factor (0-100)" dataKey="value" stroke="#A19AD3" fill="#A19AD3" fillOpacity={0.35} animationDuration={900} />
       </RadarChart>

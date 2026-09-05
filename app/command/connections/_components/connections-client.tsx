@@ -32,6 +32,7 @@ export default function ConnectionsClient() {
   const connections = data.connections ?? []
   const providers = data.providers ?? []
   const houseConfigured = providers.filter((p: any) => p.status !== 'not_configured')
+  const houseErrors = providers.filter((p: any) => p.status === 'error')
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
@@ -41,10 +42,15 @@ export default function ConnectionsClient() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Customer Connections" value={connections.length} valueClass="text-amber-300" />
-        <Stat label="Connected" value={connections.filter((c: any) => c.status === 'connected').length} valueClass="text-emerald-300" />
-        <Stat label="Errors" value={connections.filter((c: any) => c.status === 'error').length} valueClass={connections.some((c: any) => c.status === 'error') ? 'text-red-300' : 'text-white'} />
-        <Stat label="House Providers Configured" value={`${houseConfigured.length} / ${providers.length}`} />
+        <Stat label="Customer Connections" value={connections.length} valueClass="text-amber-300" sub="customer-linked broker accounts" />
+        <Stat label="Connected" value={connections.filter((c: any) => c.status === 'connected').length} valueClass="text-emerald-300" sub="customer links" />
+        <Stat label="Errors" value={connections.filter((c: any) => c.status === 'error').length} valueClass={connections.some((c: any) => c.status === 'error') ? 'text-red-300' : 'text-white'} sub="customer links" />
+        <Stat
+          label="House Providers Configured"
+          value={`${houseConfigured.length} / ${providers.length}`}
+          valueClass={houseErrors.length ? 'text-amber-300' : 'text-white'}
+          sub={houseErrors.length ? <span className="text-red-300">{houseErrors.length} in error: {houseErrors.map((p: any) => p.name).join(', ')}</span> : 'house catalog (not customer links)'}
+        />
       </div>
 
       <Panel title={`Customer Broker Links (${connections.length})`} icon={Cable} accent="emerald">
@@ -80,7 +86,8 @@ export default function ConnectionsClient() {
         </div>
       </Panel>
 
-      <Panel title={`House Provider Catalog (${providers.length})`} icon={Landmark} accent="cyan">
+      <Panel title={`House Provider Catalog (${providers.length})`} icon={Landmark} accent="cyan"
+        headerExtra={houseErrors.length ? <span className="text-[10px] text-red-300 normal-case tracking-normal">{houseErrors.length} provider{houseErrors.length === 1 ? '' : 's'} in error — house credentials, counted separately from customer links</span> : null}>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           {providers.map((p: any) => (
             <div key={p.key} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/40 p-2.5">

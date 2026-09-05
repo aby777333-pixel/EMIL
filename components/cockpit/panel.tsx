@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-export function Panel({ title, icon: Icon, children, className = '', accent = 'cyan', collapsible = false, defaultOpen = true, headerExtra }: {
+export function Panel({ title, icon: Icon, children, className = '', accent = 'cyan', collapsible = false, defaultOpen = true, headerExtra, chevron = 'left', open: openProp, onToggle }: {
   title?: string
   icon?: LucideIcon
   children: React.ReactNode
@@ -14,11 +14,24 @@ export function Panel({ title, icon: Icon, children, className = '', accent = 'c
   collapsible?: boolean
   defaultOpen?: boolean
   headerExtra?: React.ReactNode
+  /** Where the expand/collapse arrow sits on a collapsible header. */
+  chevron?: 'left' | 'right'
+  /** Controlled mode: the parent owns the open state (e.g. to force-expand while searching). */
+  open?: boolean
+  onToggle?: () => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [openState, setOpenState] = useState(defaultOpen)
+  const open = typeof openProp === 'boolean' ? openProp : openState
+  const setOpen = (fn: (o: boolean) => boolean) => {
+    if (onToggle) onToggle()
+    if (typeof openProp !== 'boolean') setOpenState(fn)
+  }
   const accentColors: Record<string, string> = {
     cyan: 'text-cyan-400', red: 'text-red-400', amber: 'text-amber-400', emerald: 'text-emerald-400', violet: 'text-violet-400',
   }
+  const Chevron = (
+    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? '' : '-rotate-90'} ${accentColors?.[accent] ?? 'text-cyan-400'}`} />
+  )
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
@@ -33,12 +46,15 @@ export function Panel({ title, icon: Icon, children, className = '', accent = 'c
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            title={open ? 'Collapse section' : 'Expand section'}
             className={`w-full flex items-center gap-2 px-4 py-2.5 text-left ${open ? 'border-b border-border' : ''}`}
           >
-            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? '' : '-rotate-90'} ${accentColors?.[accent] ?? 'text-cyan-400'}`} />
+            {chevron === 'left' ? Chevron : null}
             {Icon ? <Icon className={`h-4 w-4 shrink-0 ${accentColors?.[accent] ?? 'text-cyan-400'}`} /> : null}
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</h2>
             {headerExtra ? <span className="ml-auto shrink-0">{headerExtra}</span> : null}
+            {chevron === 'right' ? <span className={headerExtra ? 'shrink-0' : 'ml-auto shrink-0'}>{Chevron}</span> : null}
           </button>
         ) : (
           <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">

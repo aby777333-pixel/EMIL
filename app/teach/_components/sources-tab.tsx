@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel, LoadingPanel } from '@/components/cockpit/panel'
 import { Library, Search, Youtube, FileText, Sparkles, RefreshCcw, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -40,6 +40,15 @@ export default function SourcesTab({ onChanged }: { onChanged: () => void }) {
 
   useEffect(() => { load() }, [load])
 
+  // Search-as-you-type: re-query ~350 ms after the user stops typing. The
+  // initial mount is skipped because the effect above already loaded.
+  const firstSearch = useRef(true)
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return }
+    const t = setTimeout(() => load(q), 350)
+    return () => clearTimeout(t)
+  }, [q, load])
+
   const analyze = useCallback(async (id: string, refetch = false) => {
     if (busyId) return
     setBusyId(id)
@@ -68,7 +77,7 @@ export default function SourcesTab({ onChanged }: { onChanged: () => void }) {
   return (
     <Panel title={`Source Library (${sources.length}) — full provenance, nothing untraceable`} icon={Library} accent="cyan">
       <form onSubmit={(e) => { e.preventDefault(); load(q) }} className="flex gap-2 mb-4">
-        <input value={q} onChange={(e) => setQ(e?.target?.value ?? '')} className="flex-1 rounded-md bg-background border border-border px-3 py-2 text-xs text-white" placeholder="Search titles, URLs, authors..." />
+        <input value={q} onChange={(e) => setQ(e?.target?.value ?? '')} className="flex-1 rounded-md bg-background border border-border px-3 py-2 text-xs text-white" placeholder="Search titles, URLs, authors… (filters as you type)" />
         <button type="submit" className="rounded-md bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 text-xs font-semibold px-4 transition-colors flex items-center gap-1.5"><Search className="h-3.5 w-3.5" /> SEARCH</button>
       </form>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

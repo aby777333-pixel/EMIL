@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Panel, LoadingPanel } from '@/components/cockpit/panel'
 import { Search, Sparkles, BookMarked } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -39,6 +39,15 @@ export default function LibraryTab() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Search-as-you-type: re-query ~350 ms after the user stops typing. The
+  // initial mount is skipped because the effect above already loaded.
+  const firstSearch = useRef(true)
+  useEffect(() => {
+    if (firstSearch.current) { firstSearch.current = false; return }
+    const t = setTimeout(() => load(q), 350)
+    return () => clearTimeout(t)
+  }, [q, load])
 
   const analyze = useCallback(async (itemId: string) => {
     if (analyzing) return
@@ -84,7 +93,7 @@ export default function LibraryTab() {
 
       <Panel title={`Manual Knowledge Items (${items.length})`} icon={Search} accent="cyan">
         <form onSubmit={(e) => { e.preventDefault(); load(q) }} className="flex gap-2 mb-4">
-          <input value={q} onChange={(e) => setQ(e?.target?.value ?? '')} className="flex-1 rounded-md bg-background border border-border px-3 py-2 text-xs text-white" placeholder="Search titles, content, tags..." />
+          <input value={q} onChange={(e) => setQ(e?.target?.value ?? '')} className="flex-1 rounded-md bg-background border border-border px-3 py-2 text-xs text-white" placeholder="Search titles, content, tags… (filters as you type)" />
           <button type="submit" className="rounded-md bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 text-xs font-semibold px-4 transition-colors">SEARCH</button>
         </form>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
