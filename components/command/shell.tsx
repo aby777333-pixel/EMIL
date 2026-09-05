@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import {
   Menu, X, LogOut, Crown, LayoutDashboard, Users, Cable, KeyRound,
-  GraduationCap, ArrowLeftCircle, ScrollText, Database, Flag, FlaskConical } from 'lucide-react'
+  GraduationCap, ArrowLeftCircle, ScrollText, Database, Flag, FlaskConical, Activity } from 'lucide-react'
 import { CommandPalette } from '@/components/cockpit/command-palette'
 
 const COMMAND_NAV = [
@@ -24,6 +24,7 @@ const COMMAND_NAV = [
   { href: '/command/demo', label: 'Demo Environment', icon: FlaskConical },
   { href: '/command/research', label: 'Research Ops', icon: GraduationCap },
   { href: '/command/audit', label: 'Audit Trail', icon: ScrollText },
+  { href: '/command/status', label: 'Status & Incidents', icon: Activity },
 ]
 
 export function CommandShell({ children, adminEmail }: { children: React.ReactNode; adminEmail?: string }) {

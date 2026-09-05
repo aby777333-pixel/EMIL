@@ -97,8 +97,238 @@ model ApiKey {
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
   revokedAt  DateTime?
+  // Developer portal (platform round A): sandbox keys can never reach a live
+  // venue; scopes gate endpoint families; IP allow-lists and expiry are
+  // enforced on every request.
+  environment String    @default("live") // live | sandbox
+  scopes      String    @default("read") // csv of lib/entitlements SCOPES
+  ipAllowlist String?   // csv of IPs / IP prefixes (e.g. 203.0.113.7, 10.0.)
+  expiresAt   DateTime?
+  usage       ApiUsage[]
 
   @@map("api_keys")
+}
+
+// Per-key, per-day, per-endpoint usage counters — the developer portal usage
+// chart and the metered-billing input. Bumped atomically in one upsert.
+model ApiUsage {
+  id       String   @id @default(cuid())
+  keyId    String
+  key      ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  userId   String
+  day      String   // YYYY-MM-DD (UTC)
+  endpoint String
+  count    Int      @default(0)
+  lastAt   DateTime @default(now())
+
+  @@unique([keyId, day, endpoint])
+  @@index([userId, day])
+  @@map("api_usage")
+}
+
+// Outbound webhooks: EMIL → the customer's endpoint. Every delivery is
+// HMAC-signed (X-EMIL-Signature) and retried with backoff; the customer sees
+// the delivery log in the developer portal.
+model WebhookEndpoint {
+  id             String    @id @default(cuid())
+  userId         String
+  url            String
+  secret         String    // encrypted at rest; shown once at creation
+  events         String    @default("*") // csv of lib/webhooks EVENTS, or *
+  description    String?
+  status         String    @default("active") // active | paused | failing
+  failCount      Int       @default(0)
+  lastDeliveryAt DateTime?
+  lastStatusCode Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deliveries     WebhookDelivery[]
+
+  @@index([userId])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDelivery {
+  id            String          @id @default(cuid())
+  endpointId    String
+  endpoint      WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  userId        String
+  event         String
+  payload       String
+  attempt       Int             @default(0)
+  status        String          @default("pending") // pending | delivered | failed | dead
+  responseCode  Int?
+  responseBody  String?
+  nextAttemptAt DateTime        @default(now())
+  deliveredAt   DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+// ============ BRING-YOUR-OWN DATA (customer feed) ============
+// A business pushes its own quotes, orders and P&L through /api/v1/ingest.
+// Rows are isolated per user and labelled CUSTOMER FEED wherever shown —
+// never mixed with EMIL's research feeds, never an execution trigger.
+model CustomerFeedQuote {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  bid       Float?
+  ask       Float?
+  last      Float?
+  ts        DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, symbol, ts])
+  @@map("customer_feed_quotes")
+}
+
+model CustomerFeedOrder {
+  id         String   @id @default(cuid())
+  userId     String
+  externalId String
+  symbol     String
+  side       String
+  qty        Float
+  price      Float?
+  status     String   @default("filled")
+  account    String?
+  ts         DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId, ts])
+  @@map("customer_feed_orders")
+}
+
+model CustomerFeedPnl {
+  id         String   @id @default(cuid())
+  userId     String
+  account    String?
+  equity     Float?
+  balance    Float?
+  realized   Float?
+  unrealized Float?
+  ts         DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, ts])
+  @@map("customer_feed_pnl")
+}
+
+// ============ PLATFORM BRIDGES (trader inbound) ============
+// A trader's own platform pushes into EMIL: the MT5/MT4 bridge EA streams
+// account, positions and deals; TradingView (or any system) posts alerts to a
+// per-connection webhook URL. Tokens are hashed; the plain token is shown once.
+model BridgeConnection {
+  id              String    @id @default(cuid())
+  userId          String
+  kind            String    // mt5 | mt4 | tradingview | generic
+  label           String
+  tokenHash       String    @unique
+  tokenPrefix     String
+  mode            String    @default("mirror") // mirror | alerts | journal | paper_copy
+  status          String    @default("pending") // pending | connected | stale | error
+  accountNumber   String?
+  broker          String?
+  server          String?
+  currency        String?
+  balance         Float?
+  equity          Float?
+  margin          Float?
+  freeMargin      Float?
+  floatingPnl     Float?
+  leverage        Int?
+  meta            String?   // JSON: { venue?, terminalBuild?, symbolsMap? }
+  lastHeartbeatAt DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  positions       BridgePosition[]
+  deals           BridgeDeal[]
+  signals         BridgeSignal[]
+
+  @@index([userId])
+  @@map("bridge_connections")
+}
+
+model BridgePosition {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   BridgeConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       String
+  ticket       String
+  symbol       String
+  side         String   // buy | sell
+  volume       Float
+  entryPrice   Float?
+  currentPrice Float?
+  sl           Float?
+  tp           Float?
+  profit       Float?
+  swap         Float?
+  openedAt     DateTime?
+  updatedAt    DateTime @default(now())
+
+  @@unique([connectionId, ticket])
+  @@index([userId])
+  @@map("bridge_positions")
+}
+
+model BridgeDeal {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   BridgeConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       String
+  ticket       String
+  symbol       String
+  side         String
+  volume       Float
+  price        Float?
+  profit       Float?
+  commission   Float?
+  swap         Float?
+  ts           DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@unique([connectionId, ticket])
+  @@index([userId, ts])
+  @@map("bridge_deals")
+}
+
+model BridgeSignal {
+  id           String           @id @default(cuid())
+  connectionId String
+  connection   BridgeConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  userId       String
+  source       String   // tradingview | generic
+  symbol       String?
+  action       String?  // buy | sell | close | alert | journal
+  price        Float?
+  message      String
+  handled      String?  // csv of what EMIL did: notified, journaled, paper_order:<id>, webhook
+  result       String?
+  receivedAt   DateTime @default(now())
+
+  @@index([userId, receivedAt])
+  @@map("bridge_signals")
+}
+
+// Public status page incidents (admin-managed).
+model StatusIncident {
+  id         String    @id @default(cuid())
+  title      String
+  body       String?
+  severity   String    @default("minor") // minor | major | maintenance
+  status     String    @default("investigating") // investigating | identified | monitoring | resolved
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  @@map("status_incidents")
 }
 
 // Modular global data-provider layer (EMIL Universe §230/§276): official APIs,

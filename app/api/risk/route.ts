@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { emitEvent } from '@/lib/webhooks'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
         active: true,
       },
     })
+    emitEvent(userId, 'risk.override', { id: override.id, parameter: override.parameter, previousValue: override.previousValue, newValue: override.newValue, duration: override.duration }).catch(() => {})
     const profile = await prisma.riskProfile.findFirst({ where: { isActive: true } })
     if (profile) await prisma.riskProfile.update({ where: { id: profile.id }, data: { maxAggregateExposure: newValue } })
     await prisma.consentLog.create({

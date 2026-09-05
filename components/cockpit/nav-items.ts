@@ -36,5 +36,6 @@ export const NAV_ITEMS = [
   { href: '/lab', label: 'Strategy Lab', icon: Microscope },
   { href: '/teach', label: 'Teach EMIL', icon: GraduationCap },
   { href: '/trust', label: 'Trust & Metacognition', icon: BrainCircuit },
+  { href: '/developers', label: 'Developers & Integrations', icon: Plug },
   { href: '/settings', label: 'Settings & Permissions', icon: Settings },
 ]

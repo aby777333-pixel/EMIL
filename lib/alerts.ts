@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db'
 import { deliverNotification } from '@/lib/notify'
+import { emitEvent } from '@/lib/webhooks'
 
 type QuoteLike = { symbol: string; price: number | null }
 
@@ -39,6 +40,7 @@ export async function evaluateAlerts(userId: string, quotes: QuoteLike[]) {
         await prisma.notification.create({ data: { userId, kind: 'price_alert', ...n } }).catch(() => {})
         // Telegram / email fan-out (opt-in per user) — never blocks the data path.
         await deliverNotification(userId, n)
+        emitEvent(userId, 'alert.triggered', { alertId: a.id, symbol: a.symbol, condition: a.condition, threshold: a.threshold, price, title: n.title, note: a.note ?? null }).catch(() => {})
       }
     }
   } catch (e) {

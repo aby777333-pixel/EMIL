@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { llmJson } from '@/lib/teach/llm'
+import { emitEvent } from '@/lib/webhooks'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -87,6 +88,7 @@ export async function POST(req: Request) {
           tradedAt: body?.tradedAt ? new Date(body.tradedAt) : new Date(),
         },
       })
+      emitEvent(userId, 'journal.created', { id: entry.id, symbol: entry.symbol, side: entry.side, pnl: entry.pnl, tradedAt: entry.tradedAt, via: 'app' }).catch(() => {})
       return NextResponse.json({ ok: true, entry })
     }
 

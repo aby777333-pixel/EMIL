@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db'
 import { timeoutFetch } from '@/lib/execution/types'
+import { emitEvent } from '@/lib/webhooks'
 
 export const telegramConfigured = () => !!process.env.TELEGRAM_BOT_TOKEN
 export const emailConfigured = () => !!process.env.RESEND_API_KEY
@@ -88,6 +89,8 @@ export async function deliverNotification(userId: string, n: { title: string; bo
       jobs.push(emailSend(u.email, `EMIL — ${n.title}`, `<p><strong>${esc(n.title)}</strong></p><p>${esc(n.body ?? '')}</p>${link ? `<p><a href="${link}">Open in EMIL</a></p>` : ''}<p style="color:#888;font-size:12px">Research signal, not an execution trigger. Manage delivery in EMIL → Settings.</p>`))
     }
     await Promise.allSettled(jobs)
+    // Outbound webhooks (platform round A) — every notification is also an event.
+    emitEvent(userId, 'notification.created', { title: n.title, body: n.body ?? null, href: link || null }).catch(() => {})
   } catch (e) {
     console.error('notification delivery failed', e)
   }

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { watchlistQuotes } from '@/lib/data/hub'
 import { evaluateAlerts } from '@/lib/alerts'
 import { flagEnabled } from '@/lib/flags'
+import { dispatchDue } from '@/lib/webhooks'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,8 @@ export async function GET() {
         if (Array.isArray(quotes?.data)) await evaluateAlerts(userId, quotes.data)
       } catch { /* budget reached or feed down — alerts evaluate next poll */ }
     }
+    // Opportunistic webhook retry drain (serverless has no background worker).
+    dispatchDue(5).catch(() => {})
     const [alerts, notifications, unread] = await Promise.all([
       prisma.priceAlert.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 100 }),
       prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 }),

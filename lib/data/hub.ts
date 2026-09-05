@@ -6,6 +6,7 @@ import { decryptSecret } from '@/lib/secrets'
 // a fetch timestamp so the UI can label LIVE / DELAYED / DAILY honestly.
 
 import { prisma } from '@/lib/db'
+import { emitEvent } from '@/lib/webhooks'
 
 const UA = 'EMIL-Research/1.0 (contact: admin@emil.app)'
 
@@ -21,9 +22,16 @@ export const timeoutFetch = async (url: string, init: RequestInit = {}, ms = 120
 
 // Best-effort provider health stamp — never blocks or fails the data path.
 export function stampHealth(key: string, ok: boolean, latencyMs: number, error?: string) {
-  prisma.dataProvider.update({
-    where: { key },
-    data: { status: ok ? 'healthy' : 'error', lastCheckedAt: new Date(), lastLatencyMs: Math.round(latencyMs), lastError: ok ? null : (error ?? 'request failed').slice(0, 500) },
+  const status = ok ? 'healthy' : 'error'
+  prisma.dataProvider.findUnique({ where: { key }, select: { status: true, name: true } }).then(async (prev) => {
+    await prisma.dataProvider.update({
+      where: { key },
+      data: { status, lastCheckedAt: new Date(), lastLatencyMs: Math.round(latencyMs), lastError: ok ? null : (error ?? 'request failed').slice(0, 500) },
+    })
+    // Outbound webhook on a real transition only (healthy ↔ error), broadcast to every subscriber.
+    if (prev && prev.status !== status && (prev.status === 'healthy' || status === 'healthy')) {
+      emitEvent(null, 'health.changed', { kind: 'data_provider', key, name: prev.name, from: prev.status, to: status, latencyMs: Math.round(latencyMs), error: ok ? null : (error ?? 'request failed').slice(0, 200) }).catch(() => {})
+    }
   }).catch(() => {})
 }
 
