@@ -138,5 +138,4 @@ export async function POST(req: Request) {
   }
 }
 
-// Exposed for the admin CRM (which still issues keys on a customer's behalf).
-export { hashApiKey }
+void hashApiKey
