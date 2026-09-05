@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import DeliveryPanel from './delivery-panel'
 import TwoFactorPanel from './two-factor-panel'
+import PrivacyPanel from './privacy-panel'
 import { Panel, LoadingPanel, StatusMessage } from '@/components/cockpit/panel'
 import { fmtNum, healthColor } from '@/lib/format'
 import { Settings, ToggleRight, SlidersHorizontal, ScrollText, FileClock, HeartPulse, Siren } from 'lucide-react'
@@ -115,6 +116,7 @@ export default function SettingsClient() {
         <TwoFactorPanel />
         <DeliveryPanel />
       </div>
+      <PrivacyPanel />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Panel title="Permission Grants" icon={ToggleRight} accent="cyan">

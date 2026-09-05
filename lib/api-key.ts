@@ -90,6 +90,13 @@ export async function authenticateApiKey(req: Request): Promise<ApiAuthResult> {
     const retryAfterSec = !perMin.allowed ? perMin.retryAfterSec : perDay.retryAfterSec
     return { ok: false, status: 429, error: `Plan quota reached (${limits.label}: ${which}). Retry in ${retryAfterSec}s or upgrade the plan.`, retryAfterSec }
   }
+  // Quota alert at 80% of the daily allowance — once per day, never blocking.
+  if (!isAdmin && perDay.count === Math.ceil(limits.apiPerDay * 0.8)) {
+    rateLimit(`apikey:quota-alert:${record.userId}`, 1, 86_400).then((g) => {
+      if (!g.allowed) return
+      prisma.notification.create({ data: { userId: record.userId, kind: 'system', title: `API quota: 80% of today's ${limits.apiPerDay.toLocaleString()} calls used`, body: `${limits.label} plan. Requests beyond the daily allowance return 429 until 00:00 UTC — consider a higher plan or your own vendor key.`, href: '/billing' } }).catch(() => {})
+    }).catch(() => {})
+  }
   // Best-effort usage stamp — never blocks the request.
   prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } }).catch(() => {})
   return {

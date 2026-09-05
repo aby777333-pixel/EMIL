@@ -120,10 +120,17 @@ export async function applyMtSnapshot(conn: { id: string; userId: string; equity
 
 // Mark connections that stopped sending as stale (called from readers).
 export async function refreshStaleness(userId: string) {
-  await prisma.bridgeConnection.updateMany({
-    where: { userId, status: 'connected', lastHeartbeatAt: { lt: new Date(Date.now() - STALE_AFTER_SEC * 1000) } },
-    data: { status: 'stale' },
-  }).catch(() => {})
+  const stale = await prisma.bridgeConnection.findMany({ where: { userId, status: 'connected', kind: { in: ['mt5', 'mt4'] }, lastHeartbeatAt: { lt: new Date(Date.now() - STALE_AFTER_SEC * 1000) } } }).catch(() => [])
+  if (stale.length === 0) return
+  await prisma.bridgeConnection.updateMany({ where: { id: { in: stale.map((s) => s.id) } }, data: { status: 'stale' } }).catch(() => {})
+  // Integration health: one notification per connection per hour while it stays silent.
+  for (const s of stale) {
+    const gate = await rateLimit(`bridge:stale:${s.id}`, 1, 3600)
+    if (!gate.allowed) continue
+    const n = { title: `${s.label}: terminal stopped sending`, body: `No snapshot for ${Math.round((Date.now() - new Date(s.lastHeartbeatAt ?? 0).getTime()) / 60000)} minutes. Check that MetaTrader is open, Algo Trading is on and the EA is attached.`, href: '/bridge' }
+    await prisma.notification.create({ data: { userId, kind: 'broker', ...n } }).catch(() => {})
+    deliverNotification(userId, n).catch(() => {})
+  }
 }
 
 // ---- Statement import ------------------------------------------------------

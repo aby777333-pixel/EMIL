@@ -113,10 +113,16 @@ async function deliverOne(d: { id: string; attempt: number; payload: string; eve
     data: { attempt, status: ok ? 'delivered' : dead ? 'dead' : 'failed', responseCode: code, responseBody: text, nextAttemptAt: next, deliveredAt: ok ? new Date() : null },
   })
   const failCount = ok ? 0 : d.endpoint.failCount + 1
+  const nextStatus = d.endpoint.status === 'paused' ? 'paused' : failCount >= FAILING_AFTER ? 'failing' : 'active'
   await prisma.webhookEndpoint.update({
     where: { id: d.endpoint.id },
-    data: { failCount, lastDeliveryAt: new Date(), lastStatusCode: code, status: d.endpoint.status === 'paused' ? 'paused' : failCount >= FAILING_AFTER ? 'failing' : 'active' },
+    data: { failCount, lastDeliveryAt: new Date(), lastStatusCode: code, status: nextStatus },
   }).catch(() => {})
+  // Integration health: tell the owner once when an endpoint starts failing (in-app only — never through the failing channel).
+  if (nextStatus === 'failing' && d.endpoint.status !== 'failing') {
+    const owner = await prisma.webhookEndpoint.findUnique({ where: { id: d.endpoint.id }, select: { userId: true } }).catch(() => null)
+    if (owner) await prisma.notification.create({ data: { userId: owner.userId, kind: 'system', title: 'Webhook endpoint failing', body: `${d.endpoint.url} failed ${failCount} deliveries in a row (last: ${code ?? 'no response'} ${text.slice(0, 80)}). Deliveries keep retrying with backoff; fix the endpoint or pause it in Developers.`, href: '/developers' } }).catch(() => {})
+  }
   return ok
 }
 

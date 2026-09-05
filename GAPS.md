@@ -135,3 +135,21 @@ Universe increment; Round 3 = 2026-09-02). Rule of the build: extend, never brea
 Research data ≠ execution data (every hub feed is labeled and never drives
 orders). Research availability ≠ trading availability. Paper ≠ live. Nothing
 future is labeled live. Secrets never reach the browser. All changes additive.
+
+## Platform program (2026-09-05) — rounds A–G: "connect your platform to EMIL, EMIL to your platform"
+
+Shipped the same day, each round built + deployed separately (see `git log`):
+
+- **A — Platform layer**: scoped live/sandbox API keys, IP allow-lists, expiry, rotation; per-plan quotas + metering (`api_usage`); expanded `/api/v1` (market data, news, calendar, research, watchlist, alerts, journal, portfolio, PAPER orders, broker links, webhooks, ingest, SSE stream); signed outbound webhooks with retries; OpenAPI/Postman/SDKs; `/developers` portal + docs; public `/status`.
+- **B — Trader inbound**: `/bridge` — MT5/MT4 read-only bridge EAs, TradingView/generic alert webhooks (alerts / journal / paper-copy), CSV statement import, real-account mirror into Portfolio with drawdown watch.
+- **C — Organizations**: roles, invites, SSO-domain auto-join, Google/Microsoft sign-in (env-gated), client book + white-label portals `/c/<token>`, recommendation workflow, kill switch / restricted list / position limits / maker-checker enforced on every paper order, signal channels with calculated track records, hash-chained compliance archive.
+- **D — Billing**: subscriptions, monthly invoices (base + API overage), Razorpay / Stripe payment links + webhooks (env-gated), past-due → trial limits, admin billing console, `/api/cron/billing`.
+- **E — Outbound**: Slack/Discord/Teams channels, embeddable widgets + `sdk/emil-embed.js`, OAuth 2.0 "Connect with EMIL", integrations directory.
+- **F — BYO**: `/feed` over the ingest tables; own Twelve Data key bypasses the house budget; own OpenAI/Abacus key powers embedded Ask EMIL.
+- **G — Plumbing**: 80% daily-quota alert, failing-webhook + stale-bridge notifications, GDPR/DPDP export + delete (`/api/account`, Settings → Privacy), `SECURITY.md`.
+
+### Env vars introduced (all optional; features degrade honestly when unset)
+`CRON_SECRET` · `GOOGLE_CLIENT_ID/SECRET` · `AZURE_AD_CLIENT_ID/SECRET/TENANT_ID` · `RAZORPAY_KEY_ID/KEY_SECRET/WEBHOOK_SECRET/CURRENCY` · `USD_INR_RATE` · `STRIPE_SECRET_KEY/WEBHOOK_SECRET` · `OPENAI_MODEL`.
+
+### Still open (honestly not built)
+SAML SSO · Zapier/Make marketplace listings (works via REST + webhooks) · cTrader / IBKR / NinjaTrader / Zerodha native sync (use generic webhook or statement import) · external penetration test · data-residency / private deployment / SLA (recorded as requests) · per-user vendor keys for the whole cockpit (today: charts/correlation/candles + embedded Ask).
