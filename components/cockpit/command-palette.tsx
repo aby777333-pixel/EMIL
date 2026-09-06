@@ -1,6 +1,6 @@
 'use client'
 import { openEmilTrade } from '@/lib/emil-trade'
-import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText } from 'lucide-react'
+import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Building2, Filter, Waves, Bot } from 'lucide-react'
 
 // EMIL command palette — Ctrl/⌘+K from anywhere. Navigation for the cockpit,
 // the Command Center (admins) and the EMIL native trading platform.
@@ -23,6 +23,10 @@ const COCKPIT: { href: string; label: string; icon: any; hint?: string }[] = [
   { href: '/markets', label: 'Global Markets', icon: Globe2, hint: 'terminal · indices · fx · crypto · watchlist' },
   { href: '/charts', label: 'Charts', icon: CandlestickChart, hint: 'candles · SMA/EMA · any symbol' },
   { href: '/correlation', label: 'Correlation Engine', icon: Network, hint: 'pairs · rolling · beta' },
+  { href: '/company', label: 'Company Intelligence', icon: Building2, hint: 'sec edgar · fundamentals · filings · earnings' },
+  { href: '/screener', label: 'Equity Screener', icon: Filter, hint: 'fundamentals · valuation · momentum' },
+  { href: '/scenario', label: 'Scenario & Hedge Simulator', icon: Waves, hint: 'factor shocks · exposures · hedges' },
+  { href: '/agent-desk', label: 'Agent Paper Desk', icon: Bot, hint: 'council · guardian · paper orders' },
   { href: '/news', label: 'EMIL News', icon: Newspaper, hint: 'global headlines' },
   { href: '/alerts', label: 'Alert Center', icon: BellRing, hint: 'price alerts · notifications' },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },

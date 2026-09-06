@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Panel, LoadingPanel, StatusMessage, Stat } from '@/components/cockpit/panel'
 import { Briefcase, RefreshCw, PieChart, Layers, Activity, AlertTriangle } from 'lucide-react'
+import CommentaryPanel from './commentary-panel'
 
 type Data = {
   fetchedAt: string
@@ -132,6 +133,8 @@ export default function PortfolioClient() {
           </table>
         </div>
       </Panel>
+
+      <CommentaryPanel />
 
       <Panel title="Shock scenarios — linear, per asset class" icon={AlertTriangle} accent="violet">
         {data.scenarios.length === 0 ? <p className="text-xs text-slate-500">Scenarios appear once there are priced open positions.</p> : (

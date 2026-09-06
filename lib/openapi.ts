@@ -15,7 +15,7 @@ export type EndpointDef = {
   notes?: string
 }
 
-export const API_VERSION = '1.2'
+export const API_VERSION = '1.3'
 
 export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/openapi.json', summary: 'This OpenAPI 3.0 document', scope: 'public', group: 'Meta' },
@@ -39,6 +39,11 @@ export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/calendar/central-banks', summary: 'Central-bank policy monitor', scope: 'calendar', group: 'News & calendar' },
   { method: 'GET', path: '/research/report', summary: 'Structured instrument research report (calculated statistics + live context)', scope: 'research', group: 'Research', params: [{ name: 'symbol', in: 'query', required: true, description: 'Instrument', example: 'EUR/USD' }], notes: 'One AI call per uncached report; cached per symbol.' },
   { method: 'GET', path: '/research/brief', summary: 'The morning brief for the caller', scope: 'research', group: 'Research' },
+  { method: 'GET', path: '/research/company', summary: 'Company intelligence: SEC EDGAR fundamentals, filings, calculated valuation, price statistics (Finnhub profile/earnings when keyed)', scope: 'research', group: 'Research', params: [{ name: 'symbol', in: 'query', required: true, description: 'US-listed ticker', example: 'AAPL' }] },
+  { method: 'GET', path: '/research/screener', summary: 'Equity screener rows over the instrument master (cached fundamentals + price statistics; unscanned rows say so)', scope: 'research', group: 'Research' },
+  { method: 'GET', path: '/portfolio/commentary', summary: 'Model commentary on the consolidated portfolio (concentration, factor exposures, risk-off scenario, breakers)', scope: 'portfolio', group: 'Portfolio', notes: 'One AI call per hour per caller; labelled model assessment.' },
+  { method: 'POST', path: '/portfolio/scenario', summary: 'Factor-shock scenario over the consolidated portfolio with proxy hedge proposals', scope: 'portfolio', group: 'Portfolio', body: { preset: 'risk_off | usd_spike | crypto_crash | equity_rally | gold_rally | oil_shock | rates_shock (optional)', shocks: '{ usd?, equities?, crypto?, gold?, oil? (%), rates? (bp) }', overrides: '{ SYMBOL: implied move % }', hedgeRatio: '0..1 (default 0.5)' }, notes: 'Calculated research view; nothing is sent to a venue.' },
+  { method: 'GET', path: '/paper/agent-proposals', summary: 'Agent Paper Desk proposals (council votes, guardian checks, sizing, outcome) — read only', scope: 'paper_trade', group: 'Paper trading', notes: 'Execution of a proposal requires a click in the cockpit; the API never executes agent proposals.' },
   { method: 'GET', path: '/watchlist', summary: 'Your tracked symbols', scope: 'alerts', group: 'Alerts & watchlist' },
   { method: 'POST', path: '/watchlist', summary: 'Track a symbol', scope: 'alerts', group: 'Alerts & watchlist', body: { symbol: 'Any spelling; resolved through the instrument master' } },
   { method: 'DELETE', path: '/watchlist/{symbol}', summary: 'Stop tracking a symbol', scope: 'alerts', group: 'Alerts & watchlist', params: [{ name: 'symbol', in: 'path', required: true, description: 'Symbol' }] },

@@ -1,4 +1,4 @@
-import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Boxes, Briefcase, Grid3X3, Cable, Building2, CreditCard, Blocks, Database } from 'lucide-react'
+import { Beaker, Sigma, CalendarDays, FlaskRound, BookOpenText, Radio, Boxes, Briefcase, Grid3X3, Cable, Building2, CreditCard, Blocks, Database, Filter, Waves, Bot } from 'lucide-react'
 import { EMIL_TRADE_URL } from '@/lib/emil-trade'
 import {
   LayoutDashboard, ShieldCheck, CandlestickChart, Network, Gauge,
@@ -15,11 +15,14 @@ export const NAV_ITEMS = [
   { href: '/heatmap', label: 'Heatmap & Breadth', icon: Grid3X3 },
   { href: '/charts', label: 'Charts', icon: CandlestickChart },
   { href: '/correlation', label: 'Correlation', icon: GitCompareArrows },
+  { href: '/company', label: 'Company Intelligence', icon: Building2 },
+  { href: '/screener', label: 'Equity Screener', icon: Filter },
   { href: '/news', label: 'EMIL News', icon: Newspaper },
   { href: '/alerts', label: 'Alert Center', icon: BellRing },
   { href: '/arm', label: 'ARM / DISARM', icon: ShieldCheck },
   { href: '/trades', label: 'Trade Cards', icon: CandlestickChart },
   { href: '/portfolio', label: 'Portfolio & Exposure', icon: Briefcase },
+  { href: '/scenario', label: 'Scenario & Hedges', icon: Waves },
   { href: '/agents', label: 'Agent Council', icon: Network },
   { href: '/api-hub', label: 'Global API Hub', icon: Plug },
   { href: `${EMIL_TRADE_URL}/terminal`, label: 'EMIL Trade', icon: Radio, external: true },
@@ -27,6 +30,7 @@ export const NAV_ITEMS = [
   // { href: `${EMIL_TRADE_URL}/terminal/tv`, label: 'Live TV', icon: Tv, external: true },
   // { href: `${EMIL_TRADE_URL}/terminal/chat`, label: 'Live Chat', icon: MessagesSquare, external: true },
   { href: '/paper', label: 'Paper Trading Desk', icon: Beaker },
+  { href: '/agent-desk', label: 'Agent Paper Desk', icon: Bot },
   { href: '/backtest', label: 'Backtest Engine', icon: FlaskRound },
   { href: '/options', label: 'Options Analytics', icon: Sigma },
   { href: '/calendar', label: 'Calendar & Central Banks', icon: CalendarDays },

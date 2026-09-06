@@ -507,6 +507,11 @@ async function main() {
     { key: 'options_analytics', label: 'Options analytics', description: 'Options terminal (spec §25) on Deribit public marks: chain, ATM IV term structure, put/call OI, max pain, skew. Research only.', enabled: true },
     { key: 'paper_trading_desk', label: 'Paper Trading Desk', description: 'Guarded order router + /paper desk on testnet/sandbox venues (Deribit Testnet, Gemini Sandbox, Delta Demo). Test funds only.', enabled: true },
     { key: 'live_crypto_execution', label: 'Live crypto execution', description: 'Allows the guarded router to send REAL orders to live Deribit / Gemini / Delta rows (owner only, EMIL must be ARMED, per-order cap). Keep OFF until rehearsed on paper.', enabled: false },
+    { key: 'company_intelligence', label: 'Company intelligence & screener', description: 'SEC EDGAR fundamentals/filings pages per equity + the equity screener (spec §21–23). Research only.', enabled: true },
+    { key: 'scenario_simulator', label: 'Scenario & hedge simulator', description: 'Factor-shock scenarios over the consolidated portfolio with proxy hedge proposals (spec §30, §96–§115). Calculated research view; nothing is sent.', enabled: true },
+    { key: 'portfolio_commentary', label: 'Portfolio AI commentary', description: 'One cached model read of the consolidated portfolio, exposures, risk-off scenario and breakers (spec §28–29). Model assessment, not advice.', enabled: true },
+    { key: 'agent_paper_desk', label: 'Agent Paper Desk', description: 'Agent council proposals routed through the guarded router to PAPER venues only, after the user confirms (spec §61–62). Live venues are refused in code.', enabled: true },
+    { key: 'agent_paper_autopilot', label: 'Agent Paper Desk — autopilot', description: 'Lets watches execute approved PAPER proposals without a click when EMIL is ARMED in a semi-autonomous/autonomous mode. Keep OFF until rehearsed.', enabled: false },
   ];
   for (const f of FLAG_DEFAULTS) {
     await prisma.featureFlag.upsert({ where: { key: f.key }, update: {}, create: f });

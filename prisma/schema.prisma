@@ -1792,3 +1792,63 @@ model ChartLevel {
   @@index([userId, symbol])
   @@map("chart_levels")
 }
+
+// ============ AGENT PAPER DESK (agent-driven order flow, PAPER venues only) ============
+
+// A council proposal: what the agents concluded for one instrument on one
+// PAPER venue, the deterministic guardian's verdict, and — if the user (or
+// the autopilot, when explicitly enabled) executed it — the venue order it
+// became. Live venues are refused in code; this table never holds live flow.
+model AgentDeskProposal {
+  id              String   @id @default(cuid())
+  userId          String
+  providerKey     String   // paper venue key (deribit_testnet | gemini_sandbox | delta_exchange_testnet)
+  symbol          String   // venue symbol
+  canonical       String
+  direction       String   // BUY | SELL | WAIT
+  consensusScore  Float    @default(0)
+  agreement       Float    @default(0)
+  confidence      Float    @default(0)
+  refPrice        Float?
+  stopPct         Float?
+  targetPct       Float?
+  qty             Float?
+  qtyUnit         String?
+  notionalUsd     Float?
+  riskUsd         Float?
+  thesis          String?
+  votes           String   // JSON [{agent, category, vote, confidence, for, against}]
+  guardian        String   // JSON {approved, checks:[{key,label,ok,detail}]}
+  risks           String?  // JSON string[]
+  status          String   @default("proposed") // proposed | rejected | executed | dismissed | expired | error
+  source          String   @default("manual")   // manual | autopilot
+  message         String?
+  venueOrderId    String?
+  executedAt      DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@map("agent_desk_proposals")
+}
+
+// Autopilot watch: the council re-convenes for this venue/symbol on a cadence
+// and executes ONLY when every gate passes (paper venue, flag ON, EMIL ARMED
+// in a semi-autonomous or autonomous mode, guardian approved).
+model AgentDeskWatch {
+  id            String   @id @default(cuid())
+  userId        String
+  providerKey   String
+  symbol        String
+  enabled       Boolean  @default(true)
+  intervalMin   Int      @default(60)
+  maxPerDay     Int      @default(4)
+  lastRunAt     DateTime?
+  lastOutcome   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, providerKey, symbol])
+  @@map("agent_desk_watches")
+}

@@ -133,9 +133,34 @@ export const MARKET_BOARD: { symbol: string; label: string; group: string }[] = 
   { symbol: 'USO', label: 'WTI Crude (USO ETF proxy)', group: 'Energy' },
 ]
 
-async function tdKey(): Promise<string | null> {
-  const provider = await prisma.dataProvider.findUnique({ where: { key: 'twelve_data' } })
+// Decrypted API key for any keyed provider in the hub (null when the provider
+// is disabled or has no key). Secrets never leave the server.
+export async function providerApiKey(key: string): Promise<string | null> {
+  const provider = await prisma.dataProvider.findUnique({ where: { key } }).catch(() => null)
   return provider?.enabled && provider?.apiKey ? decryptSecret(provider.apiKey) : null
+}
+
+async function tdKey(): Promise<string | null> {
+  return providerApiKey('twelve_data')
+}
+
+// Read a cache entry WITHOUT fetching — for screens that must never spend
+// provider credits (the company screener reads whatever series/summaries the
+// hub already holds and says honestly what is missing).
+export async function peekCache<T = any>(cacheKey: string): Promise<(T & { cached: true; ageSec: number }) | null> {
+  const row = await prisma.cacheEntry.findUnique({ where: { key: cacheKey } }).catch(() => null)
+  if (!row) return null
+  try {
+    return { ...JSON.parse(row.payload), cached: true, ageSec: Math.round((Date.now() - row.fetchedAt.getTime()) / 1000) }
+  } catch { return null }
+}
+
+/** Cache key the daily time series lands under (mirrors timeSeries()). */
+export const timeSeriesCacheKey = (symbol: string, interval = '1day', outputsize = 90, startDate?: string) => {
+  const iv = TS_INTERVALS.includes(interval) ? interval : '1day'
+  const start = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : null
+  const size = Math.max(2, Math.min(start ? 1200 : 500, Math.round(outputsize) || 90))
+  return `ts_${symbol.trim().toUpperCase()}_${iv}_${size}${start ? `_${start}` : ''}`
 }
 
 // ---- Twelve Data credit budgeter -------------------------------------------

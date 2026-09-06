@@ -9,6 +9,10 @@ import { centralBankMonitor, economicCalendar } from '@/lib/data/calendar'
 import { instrumentReport } from '@/lib/report'
 import { morningBrief } from '@/lib/brief'
 import { consolidatedPortfolio } from '@/lib/portfolio'
+import { portfolioCommentary } from '@/lib/portfolio-commentary'
+import { runScenario } from '@/lib/scenario'
+import { companyIntel } from '@/lib/company'
+import { screenerRows } from '@/lib/company/screener'
 import { scoreHeadlines } from '@/lib/news-impact'
 import { flagEnabled } from '@/lib/flags'
 import { ExecError, cancelGuarded, isPaperVenue, listExecutionVenues, placeGuarded } from '@/lib/execution/router'
@@ -193,6 +197,17 @@ async function handle(req: Request, params: { path?: string[] }) {
       return json({ ok: true, ...(await instrumentReport(userId, auth.isAdmin, s('symbol').slice(0, 24))) })
     }
     if (path === 'research/brief' && method === 'GET') { const d = needScope(auth, 'research'); if (d) return d; return json({ ok: true, ...(await morningBrief(userId)) }) }
+    if (path === 'research/company' && method === 'GET') {
+      const deny = needScope(auth, 'research'); if (deny) return deny
+      if (!(await flagEnabled('company_intelligence', true))) return json({ error: 'Company intelligence is switched off by the administrator.' }, 403)
+      if (!s('symbol')) return json({ error: 'symbol parameter required' }, 400)
+      return json({ ok: true, ...(await companyIntel(s('symbol').slice(0, 16), userId)) })
+    }
+    if (path === 'research/screener' && method === 'GET') {
+      const deny = needScope(auth, 'research'); if (deny) return deny
+      if (!(await flagEnabled('company_intelligence', true))) return json({ error: 'Company intelligence is switched off by the administrator.' }, 403)
+      return json({ ok: true, note: 'Rows reflect what the hub already holds; scanning is done from the cockpit.', ...(await screenerRows()) })
+    }
 
     // ---- Watchlist & alerts ----------------------------------------------
     if (path === 'watchlist' && method === 'GET') {
@@ -283,6 +298,17 @@ async function handle(req: Request, params: { path?: string[] }) {
       const deny = needScope(auth, 'portfolio'); if (deny) return deny
       return json({ ok: true, ...(await consolidatedPortfolio(userId, auth.isAdmin, s('refresh') === '1')) })
     }
+    if (path === 'portfolio/commentary' && method === 'GET') {
+      const deny = needScope(auth, 'portfolio'); if (deny) return deny
+      if (!(await flagEnabled('portfolio_commentary', true))) return json({ error: 'Portfolio commentary is switched off by the administrator.' }, 403)
+      return json({ ok: true, label: 'MODEL ASSESSMENT — not advice', ...(await portfolioCommentary(userId, auth.isAdmin)) })
+    }
+    if (path === 'portfolio/scenario' && method === 'POST') {
+      const deny = needScope(auth, 'portfolio'); if (deny) return deny
+      if (!(await flagEnabled('scenario_simulator', true))) return json({ error: 'The scenario simulator is switched off by the administrator.' }, 403)
+      const body = await req.json().catch(() => ({}))
+      return json({ ok: true, label: 'CALCULATED research view — nothing is sent to a venue', ...(await runScenario(userId, auth.isAdmin, { preset: body?.preset, shocks: body?.shocks, overrides: body?.overrides, hedgeRatio: body?.hedgeRatio, includePaper: body?.includePaper })) })
+    }
 
     if (path === 'org' && method === 'GET') {
       const ms = await membershipsOf(userId, auth.email)
@@ -309,6 +335,10 @@ async function handle(req: Request, params: { path?: string[] }) {
       const deny = needScope(auth, 'paper_trade'); if (deny) return deny
       if (auth.limits.sandboxOnly && auth.planKey === 'trial' && method !== 'GET') return json({ error: 'Trial plans can read paper venues but not place orders through the API. Upgrade to Starter or place paper orders from the EMIL Paper Trading Desk.' }, 403)
       if (!(await flagEnabled('paper_trading_desk', true))) return json({ error: 'The trading desk is switched off by the administrator.' }, 403)
+      if (path === 'paper/agent-proposals' && method === 'GET') {
+        const rows = await prisma.agentDeskProposal.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 50 })
+        return json({ ok: true, note: 'Read only — agent proposals are executed from the cockpit after a user confirmation, never through the API.', proposals: rows.map((p) => ({ ...p, votes: JSON.parse(p.votes || '[]'), guardian: JSON.parse(p.guardian || '{}'), risks: JSON.parse(p.risks || '[]') })) })
+      }
       if (path === 'paper/venues' && method === 'GET') {
         const venues = (await listExecutionVenues(userId, false)).filter((v: any) => isPaperVenue(v.key))
         return json({ ok: true, note: 'The Platform API reaches PAPER venues only. Live execution is never exposed programmatically.', venues })
