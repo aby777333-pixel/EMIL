@@ -113,7 +113,7 @@ export default function AdminClient() {
             {pendingStrategies.map((b: any) => (
               <div key={b.id} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5">
                 <p className="text-[11px] text-slate-200 font-semibold">{b.code} v{b.version} — {b.name}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{b.origin === 'emil_generated' ? 'EMIL-GENERATED · ' : ''}robustness {Math.round(b.robustnessScore)}/100 · state {b.state}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{b.origin === 'emil_generated' ? 'EMIL-GENERATED · ' : b.origin === 'builder' ? 'FROM STRATEGY BUILDER · ' : ''}robustness {Math.round(b.robustnessScore)}/100 · state {b.state}</p>
                 <p className="text-[10px] text-cyan-300/80 mt-1">Approve or reject from the Strategy Lab page — this list is the review queue.</p>
               </div>
             ))}

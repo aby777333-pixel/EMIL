@@ -15,6 +15,21 @@ Every EMIL surface (top-nav item, 🧠 EMIL chip, ABIN "Ask EMIL"/"Arm EMIL", co
 `https://serene-frangollo-a3c59c.netlify.app`. The cockpit links back here from the Global API
 Hub "Trade With EMIL" card, the sidebar "EMIL Trade" item and the ⌘K palette (all new-tab).
 
+**EMIL Strategy Builder (`/ai-lab`):** the old AI Strategy Lab copy (`ai-lab-source/`) is gone.
+`public/ai-lab/` is the EMIL Strategy Builder, built from `apps/emil-strategy-builder` in the
+777 Raptor repo (`aby777333-pixel/777RDEC`, build command in its `apps/README.md`) — rebuild it
+there, never edit the output here. Strategies are **EMIL Strategy Specs** on this platform's own
+EA engines (`src/lib/emil-strategy-kit/`, a copy of `packages/emil-strategy-kit` in 777RDEC —
+keep it identical):
+- **Attach:** a builder link `/terminal#emil-strategy=…` is caught on any page
+  (`components/emil/EmilStrategyImportListener`), survives sign-in in sessionStorage, and is offered
+  on the terminal (`components/trading/EmilStrategyImportDialog`). Confirming adds a custom EA on the
+  same engine with inputs and Properties pre-set (`lib/trading/emil-strategy-import.ts`).
+- **Teach EMIL:** `POST /api/emil/teach` (signed-in only) forwards the spec to the cockpit's
+  `POST /api/v1/strategies`. Needs `EMIL_COCKPIT_URL` and `EMIL_COCKPIT_API_KEY` (a live key with
+  the `strategies_write` scope, issued in the cockpit under Developers) in this site's Netlify env;
+  without them the builder says sending is not switched on.
+
 **Deploy (git-connected, own Netlify site `emil-trade` / id `56cac256-2896-473c-b43a-dd8105162792`):**
 the site is linked to the EMIL GitHub repo with **base directory `emil-trade`**, so a push to `main`
 that touches this folder builds it (Netlify skips the build when nothing under `emil-trade/` changed).

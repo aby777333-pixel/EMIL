@@ -15,7 +15,7 @@ export type EndpointDef = {
   notes?: string
 }
 
-export const API_VERSION = '1.3'
+export const API_VERSION = '1.4'
 
 export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/openapi.json', summary: 'This OpenAPI 3.0 document', scope: 'public', group: 'Meta' },
@@ -26,6 +26,7 @@ export const ENDPOINTS: EndpointDef[] = [
   { method: 'GET', path: '/billing', summary: 'Subscription standing, this month\'s metered usage and overage estimate, invoices', scope: 'read', group: 'Account' },
   { method: 'GET', path: '/state', summary: 'EMIL system state (armed, mode, guardian, trust)', scope: 'read', group: 'EMIL' },
   { method: 'GET', path: '/strategies', summary: 'Current strategy blueprints (research output, not advice)', scope: 'read', group: 'EMIL' },
+  { method: 'POST', path: '/strategies', summary: 'Send an EMIL Strategy Spec to EMIL for review (stored as a LEARNED blueprint; a changed re-send becomes a new version)', scope: 'strategies_write', group: 'EMIL', body: { spec: 'EMIL Strategy Spec (kind "emil.strategy", specVersion 1): engine, params, timeframe, symbols, risk, source', channel: 'optional label for the sending surface, e.g. public-site' }, notes: 'Live keys only. Validated with the EMIL Strategy Kit; never trades — it moves forward only through the Strategy Lab and a human approval.' },
   { method: 'GET', path: '/knowledge/concepts', summary: 'Knowledge-graph concepts', scope: 'read', group: 'EMIL' },
   { method: 'GET', path: '/knowledge/claims', summary: 'Recent attributed claims', scope: 'read', group: 'EMIL' },
   { method: 'GET', path: '/market/board', summary: 'Indices, metals and energy board (delayed research data)', scope: 'market_data', group: 'Market data' },

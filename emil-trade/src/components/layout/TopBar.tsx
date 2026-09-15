@@ -59,7 +59,7 @@ const menuCategories: MenuCategory[] = [
       { href: '/dashboard/orders', icon: <Activity size={14} />, label: 'Orders', desc: 'Order management' },
       { href: '/dashboard/positions', icon: <TrendingUp size={14} />, label: 'Positions', desc: 'Open positions' },
       { href: '/terminal/ea-builder', icon: <Bot size={14} />, label: 'EA Builder', desc: 'Automated strategies' },
-      { href: '/ai-lab/', icon: <Brain size={14} />, label: 'AI Strategy Lab', desc: 'Multi-agent strategy lab' },
+      { href: '/ai-lab/', icon: <Brain size={14} />, label: 'EMIL Strategy Builder', desc: 'Build, backtest, export and attach' },
       { href: '/dashboard/signals', icon: <Brain size={14} />, label: 'AI Signals', desc: 'AI trade signals' },
     ],
   },

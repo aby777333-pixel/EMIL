@@ -9,6 +9,7 @@ import AccountBar from '@/components/trading/account-summary/AccountBar';
 import RightPanel from '@/components/trading/RightPanel';
 import KeyboardShortcuts from '@/components/trading/KeyboardShortcuts';
 import TermsGateModal from '@/components/trading/TermsGateModal';
+import EmilStrategyImportDialog from '@/components/trading/EmilStrategyImportDialog';
 import dynamic from 'next/dynamic';
 import { loadWorkspacePrefs, applyWorkspacePrefs } from '@/lib/insights/workspace';
 
@@ -301,6 +302,9 @@ export default function TerminalPage() {
 
       {/* Platform terms & risk acknowledgement — blocks until accepted */}
       <TermsGateModal />
+
+      {/* A strategy sent from the EMIL Strategy Builder, offered after the terms gate */}
+      <EmilStrategyImportDialog />
     </div>
   );
 }

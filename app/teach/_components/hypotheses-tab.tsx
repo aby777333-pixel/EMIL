@@ -16,6 +16,7 @@ const STATUS_TONE: Record<string, string> = {
 const ORIGIN_LABEL: Record<string, string> = {
   source_claim: 'From a source claim',
   emil_generated: 'EMIL-GENERATED HYPOTHESIS',
+  builder: 'From the EMIL Strategy Builder',
   contradiction_probe: 'Contradiction probe',
   admin: 'Admin-created',
 }

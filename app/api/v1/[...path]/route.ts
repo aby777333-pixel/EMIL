@@ -21,6 +21,8 @@ import { buildOpenApi, buildPostman, ENDPOINTS } from '@/lib/openapi'
 import { SCOPES, type Scope } from '@/lib/entitlements'
 import { OrgGuardError, orderGuard, membershipsOf, trackRecord } from '@/lib/org'
 import { ensureSubscription, monthKey, monthUsage, overageFor } from '@/lib/billing'
+import { validateSpec } from '@/lib/emil-strategy-kit'
+import { receiveBuilderStrategy } from '@/lib/builder-strategies'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,6 +141,26 @@ async function handle(req: Request, params: { path?: string[] }) {
     if (path === 'strategies' && method === 'GET') {
       const blueprints = await prisma.strategyBlueprint.findMany({ where: { isCurrent: true }, orderBy: { updatedAt: 'desc' }, take: 50, select: { code: true, version: true, name: true, origin: true, market: true, instruments: true, timeframe: true, completeness: true, state: true, labStage: true, robustnessScore: true, metrics: true, updatedAt: true } })
       return json({ ok: true, disclaimer: 'Research output under validation — lab metrics are estimates, never a guarantee of profitability, and nothing here is investment advice.', strategies: blueprints.map((b) => ({ ...b, metrics: b.metrics ? JSON.parse(b.metrics) : null })) })
+    }
+    if (path === 'strategies' && method === 'POST') {
+      // EMIL Strategy Builder → EMIL. See lib/builder-strategies.ts.
+      const deny = needScope(auth, 'strategies_write'); if (deny) return deny
+      if (auth.environment === 'sandbox') return json({ error: 'Sandbox keys cannot add to EMIL\'s research library. Use a live key with the strategies_write scope.' }, 403)
+      const body = await req.json().catch(() => null)
+      const checked = validateSpec(body?.spec)
+      if (!checked.ok) return json({ error: checked.errors.slice(0, 5).join(' ') }, 422)
+      const channel = typeof body?.channel === 'string' && /^[a-z0-9_-]{1,40}$/i.test(body.channel) ? body.channel : 'api'
+      const result = await receiveBuilderStrategy(checked.spec, { userId, channel })
+      if (result.status === 'limit') return json({ error: 'EMIL has received its daily limit of builder strategies. Try again tomorrow.' }, 429)
+      return json({
+        ok: true,
+        status: result.status,
+        duplicate: result.status === 'duplicate',
+        code: result.code,
+        version: result.version,
+        state: 'LEARNED',
+        note: 'Research input: it is validated in the Strategy Lab and approved by a person before it can go further, and it never trades by itself.',
+      }, result.status === 'created' ? 201 : 200)
     }
     if (path === 'knowledge/concepts' && method === 'GET') {
       const concepts = await prisma.knowledgeConcept.findMany({ orderBy: [{ sourceCount: 'desc' }, { updatedAt: 'desc' }], take: 100, select: { name: true, category: true, summary: true, instruments: true, timeframes: true, validationStatus: true, confidence: true, sourceCount: true } })

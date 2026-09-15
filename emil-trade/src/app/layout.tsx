@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { NexusGlobal } from '@/components/nexus/NexusGlobal';
 import { ServiceWorker } from '@/components/ServiceWorker';
+import { EmilStrategyImportListener } from '@/components/emil/EmilStrategyImportListener';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const jetbrainsMono = JetBrains_Mono({
@@ -52,6 +53,7 @@ export default function RootLayout({
           {children}
           <NexusGlobal />
           <ServiceWorker />
+          <EmilStrategyImportListener />
         </ThemeProvider>
       </body>
     </html>
