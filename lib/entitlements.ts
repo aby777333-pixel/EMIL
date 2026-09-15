@@ -16,6 +16,7 @@ export const SCOPES = {
   broker_link: 'Link broker accounts to the caller',
   webhooks: 'Manage outbound webhook endpoints',
   ingest: 'Push your own live data (quotes, orders, P&L) into EMIL',
+  strategies_write: 'Send strategies from the EMIL Strategy Builder to EMIL for review (stored as LEARNED research; never trades)',
   stream: 'Server-sent-events stream of quotes and EMIL state',
 } as const
 

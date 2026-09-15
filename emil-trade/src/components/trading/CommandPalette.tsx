@@ -67,7 +67,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
       { id: 'nexus-open', group: 'NEXUS', label: 'Open NEXUS', run: () => dispatch('nexus-ask', {}) },
       { id: 'nexus-brief', group: 'NEXUS', label: 'NEXUS: Daily Briefing', run: () => dispatch('nexus-ask', { question: 'Give me my daily briefing' }) },
       { id: 'nexus-scan', group: 'NEXUS', label: 'NEXUS: Trade Ideas (scan)', run: () => dispatch('nexus-ask', { question: 'Give me 3 trade setups right now' }) },
-      { id: 'nav-lab', group: 'Navigate', label: 'Open AI Strategy Lab', hint: 'new tab', run: () => window.open('/ai-lab/', '_blank') },
+      { id: 'nav-lab', group: 'Navigate', label: 'Open EMIL Strategy Builder', hint: 'new tab', run: () => window.open('/ai-lab/', '_blank') },
     );
     // §35 workspace: scale / contrast / layout recovery (all reversible).
     const wp = loadWorkspacePrefs();
